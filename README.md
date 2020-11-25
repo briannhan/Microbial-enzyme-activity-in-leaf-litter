@@ -1,0 +1,2 @@
+# Microbial-enzyme-activity-in-leaf-litter
+ The Loma Ridge Global Change Experiment is an experiment that studies how climate change affects carbon cycle feedbacks. It is ran by Steve Allison, a professor of the ESS and Ecology & Evolutionary Biology deparments at UCI who specializes in microbial ecology and decomposition as a component of the carbon cycle. This project specifically studies the enzyme activity of microbes that decompose leaf litter. Comparisons will be made between coastal sage scrub vs grass vegetation and reduced vs ambient precipitation
