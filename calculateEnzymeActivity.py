@@ -109,6 +109,8 @@ T0Black = pd.read_csv(T0BlackPath, '\t', header=None, names=ogEnzymeCols)
 # them so I'm processing them to keep (1) the assay date and (2) information
 # for whether the plate is a buffer of a sample plate. If the plate is a sample
 # plate, then it would contain the sample ID
+# I'm also splitting wells into letters that represent rows and numbers that
+# represent columns on a black plate
 T0Black["Long sample name"] = T0Black["Long sample name"].str.split("_")
 for index, row in T0Black.iterrows():
     longSampleName = row["Long sample name"]
@@ -117,7 +119,13 @@ for index, row in T0Black.iterrows():
         T0Black.loc[index, "ID"] = "B"
     elif "X" in longSampleName[2]:
         T0Black.loc[index, "ID"] = longSampleName[2]
+    well = row["Well"]
+    wellRow = well[0]
+    wellColumn = int(well[1:])
+    T0Black.loc[index, "PlateRow"] = wellRow
+    T0Black.loc[index, "PlateCol"] = wellColumn
 T0Black = T0Black.drop(labels="Long sample name", axis=1)
+T0Black = T0Black[T0Black["PlateCol"] <= 10]
 
 # (2) Checking to see if enzyme activity data contains all samples
 T0BlackCounts = T0Black.groupby("ID")["ID"].count()/96
@@ -157,6 +165,7 @@ for index, row in T0Black.iterrows():
             T0Black.loc[index, "Precip"] = "Ambient"
         elif precip == "R":
             T0Black.loc[index, "Precip"] = "Reduced"
+        T0Black.loc[index, "Plot"] = plot
 
 # (3) Rearranging control readings. I intend that, for each sample, the
 # absorbance in a particular well will also correspond with the absorbance
@@ -165,14 +174,28 @@ for index, row in T0Black.iterrows():
 # second column holds the absorbance for the same well for the buffer plate.
 # I will also manipulate the quench & homogenate control readings to make sure
 # that they are side by side with the sample readings
-
 bufferDF = T0Black[T0Black["ID"] == "B"]
 T0Black = T0Black[T0Black["ID"] != "B"]
 oldCols = T0Black.columns.tolist()
-colsToDrop = oldCols[-4:]
+colsToDrop = ["ID", "Dry assay (g)", "Vegetation", "Precip", "Plot"]
 bufferDF = bufferDF.drop(labels=colsToDrop, axis=1)
 bufferDF = bufferDF.rename(mapper={"Fluorescence": "BufferReading"}, axis=1)
 
-T0Black = pd.merge(T0Black, bufferDF, how="inner", on=["Well", "Assay date"])
-# sortCols = ["ID"]
-# T0Black = T0Black.sort_values(by=sortCols, axis=1)
+labelsToMergeOn = ["Well", "Assay date", "PlateRow", "PlateCol"]
+T0Black = pd.merge(T0Black, bufferDF, how="inner", on=labelsToMergeOn)
+T0Black = T0Black.sort_values(by=["PlateCol", "Plot"])
+
+# Calculations of enzyme activity follow from the German et al 2011 paper:
+# Optimization of hydrolytic and oxidative enzyme methods for ecosystem studies
+# Refer to this paper for reference if necessary
+AMC_DF = T0Black[T0Black["PlateCol"] == 8]
+MUB_DF = T0Black[T0Black["PlateCol"] == 9]
+homogenateConDF = T0Black[T0Black["PlateCol"] == 10]
+T0Black = T0Black[T0Black["PlateCol"] <= 7]
+# columns 8 & 9 of the BUFFER plate represent standard fluorescence, while the
+# same columns in a SAMPLE plate represent quench fluorescence
+# Now, what about the substrate control? The substrate control is in column 10.
+# So, does the substrate control involve column 10 of both the sample & buffer
+# plates? Or does the substrate control only invole column 10 of the sample
+# plate? Check Steve's R script to see how he handle the controls, especially
+# the homogenate control
