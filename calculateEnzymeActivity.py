@@ -45,49 +45,55 @@ pd.set_option("display.max_columns", None)
 
 # Reading in dry mass file
 dryMassFilePath = dryMassFolderPath/dryMassFiles[0]
-dryDF = pd.read_excel(dryMassFilePath)
+dryDFfull = pd.read_excel(dryMassFilePath)
 
 # (1) Renaming columns
-oldCols = dryDF.columns.tolist()
+oldCols = dryDFfull.columns.tolist()
 newCols = ["Envelope mass (g)", "Envelope + wet (g)", "Envelope + dry (g)",
            "Wet litter mass (g)", "Dry litter mass (g)"]
 
 newColumnsDict = {oldCols[n + 2]: newCols[n] for n in range(len(newCols))}
-dryDF = dryDF.rename(columns=newColumnsDict)
+dryDFfull = dryDFfull.rename(columns=newColumnsDict)
 
 
 # (2) Filling the time column with time points
-for index, row in dryDF.iterrows():
+for index, row in dryDFfull.iterrows():
     currentTimepointType = type(row["Time"])
     if currentTimepointType != str:
-        previousRow = dryDF.iloc[index - 1]
-        dryDF.loc[index, "Time"] = previousRow["Time"]
+        previousRow = dryDFfull.iloc[index - 1]
+        dryDFfull.loc[index, "Time"] = previousRow["Time"]
 
 # (3) Adding columns & calculating dry assay mass
-dryDF["Wet assay (g)"] = 0.4
-dryDF["Dry proportion (%)"] = 100*(dryDF["Dry litter mass (g)"] /
-                                   dryDF["Wet litter mass (g)"])
-dryDF["Dry assay (g)"] = dryDF["Wet assay (g)"]*dryDF["Dry proportion (%)"]/100
+dryDFfull["Wet assay (g)"] = 0.4
+dryDFfull["Dry proportion (%)"] = 100*(dryDFfull["Dry litter mass (g)"]
+                                       / dryDFfull["Wet litter mass (g)"])
+dryDFfull["Dry assay (g)"] = (dryDFfull["Wet assay (g)"]
+                              * dryDFfull["Dry proportion (%)"]/100)
 
 # (4) Isolating timepoints T0, T3, T5
-timepoints = dryDF.groupby("Time")["Time"].count().index.tolist()
+timepoints = dryDFfull.groupby("Time")["Time"].count().index.tolist()
 timepoints = [timepoints[0], timepoints[3], timepoints[5]]
-T0_3_5Bool = dryDF["Time"].isin(timepoints)
-dryDF = dryDF[T0_3_5Bool]
+T0_3_5Bool = dryDFfull["Time"].isin(timepoints)
+dryDFfull = dryDFfull[T0_3_5Bool]
+
+oldCols = dryDFfull.columns.tolist()
+colsToDrop = oldCols[2:-1]
+dryDFprocessed = dryDFfull.drop(labels=colsToDrop, axis=1)
 # %%
 # I'm going to test with a single enzyme file first as a proof of concept. In
 # other words, I'm going to do some pre-processing for a single enzyme file
 # in this section before going on to calculate enzyme activities in the
 # following sections.
-# The tasks for this section are: 
+# The tasks for this section are:
 # (1) Process long sample names in the enzyme file;
 # (2) Check to see if the names in the enzyme files match the names in the dry
 # weights files; if there isn't a match, then some samples are missing or some
 # samples are redone; (3) rearrange the buffer plate data in a way to ease
-# calculations (4) add dry assay mass to the data and
+# calculations (4) add additional data to the enzyme data frame, which
+# consists of dry assay mass and vegetation & precipitation treatments
 
 # Obtaining a list of samples to check if plate data contain samples
-samples = dryDF.groupby("ID")["ID"].count().index.tolist()
+samples = dryDFfull.groupby("ID")["ID"].count().index.tolist()
 
 # Reading in T0 black plates
 ogEnzymeCols = ["Well", "Long sample name", "Fluorescence"]
@@ -123,18 +129,32 @@ for sample in samples:
 # no samples are mis-named or missing
 
 
-# (4) Adding dry assay mass to enzyme data frame
-T0Bool = dryDF["Time"].isin(["T0 (November 30, 2017)"])
-dryDF_T0 = dryDF[T0Bool]
-oldCols = dryDF_T0.columns.tolist()
-colsToDrop = [oldCols[0]]
-colsToDrop.extend(oldCols[2:-1])
-dryDF_T0 = dryDF_T0.drop(labels=colsToDrop, axis=1)
+# (4) Adding additional data to the enzyme data frame
+# Adding dry assay mass
+T0Bool = dryDFprocessed["Time"].isin(["T0 (November 30, 2017)"])
+dryDF_T0 = dryDFprocessed[T0Bool]
 T0Black = pd.merge(T0Black, dryDF_T0, how="left", on="ID")
+T0Black = T0Black.drop(labels="Time", axis=1)
 # be sure to read up on pandas documentation to figure out how the merge
 # method works. Go to section 2.7.2 of the guide on pandas version 1.1.4, page
 # 448 (462 on the online pdf reader)
-
+# Adding treatments
+for index, row in T0Black.iterrows():
+    rowID = row["ID"]
+    if rowID != "B":
+        # list() splits the string into a list of individual characters
+        splittedID = list(rowID)
+        precip = splittedID[-2]
+        plot = int(rowID[:-3])
+        if plot <= 24:
+            T0Black.loc[index, "Vegetation"] = "Grassland"
+        elif plot > 24:
+            T0Black.loc[index, "Vegetation"] = "CSS"
+        if precip == "X":
+            T0Black.loc[index, "Precip"] = "Ambient"
+        elif precip == "R":
+            T0Black.loc[index, "Precip"] = "Reduced"
+        print(T0Black.iloc[index])
 
 # (3) Rearranging buffer plate data. I intend that, for each sample, the
 # absorbance in a particular well will also correspond with the absorbance
