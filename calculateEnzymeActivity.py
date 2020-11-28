@@ -168,19 +168,21 @@ for index, row in T0Black.iterrows():
         T0Black.loc[index, "Plot"] = plot
 
 # (3) Rearranging control readings. I intend that, for each sample, the
-# absorbance in a particular well will also correspond with the absorbance
+# fluorescence in a particular well will also correspond with the fluorescence
 # reading in the buffer plate at that particular well. There will be 2 columns
-# one column to hold absorbance for a particular well of the sample while the
-# second column holds the absorbance for the same well for the buffer plate.
+# one column to hold fluorescence for a particular well of the sample while the
+# second column holds the fluorescence for the same well for the buffer plate.
 # I will also manipulate the quench & homogenate control readings to make sure
 # that they are side by side with the sample readings
+
+# Placing the buffer & sample readings side by side. The buffer readings for
+# columns 1-7 on the black plate will serve as the substrate control
 bufferDF = T0Black[T0Black["ID"] == "B"]
 T0Black = T0Black[T0Black["ID"] != "B"]
 oldCols = T0Black.columns.tolist()
 colsToDrop = ["ID", "Dry assay (g)", "Vegetation", "Precip", "Plot"]
 bufferDF = bufferDF.drop(labels=colsToDrop, axis=1)
 bufferDF = bufferDF.rename(mapper={"Fluorescence": "BufferReading"}, axis=1)
-
 labelsToMergeOn = ["Well", "Assay date", "PlateRow", "PlateCol"]
 T0Black = pd.merge(T0Black, bufferDF, how="inner", on=labelsToMergeOn)
 T0Black = T0Black.sort_values(by=["PlateCol", "Plot"])
@@ -189,7 +191,9 @@ T0Black = T0Black.sort_values(by=["PlateCol", "Plot"])
 # Optimization of hydrolytic and oxidative enzyme methods for ecosystem studies
 # Refer to this paper for reference if necessary
 AMC_DF = T0Black[T0Black["PlateCol"] == 8]
+AMC_DF = AMC_DF.drop(labels="Well", axis=1)
 MUB_DF = T0Black[T0Black["PlateCol"] == 9]
+MUB_DF = MUB_DF.drop(labels="Well", axis=1)
 homogenateConDF = T0Black[T0Black["PlateCol"] == 10]
 T0Black = T0Black[T0Black["PlateCol"] <= 7]
 # columns 8 & 9 of the BUFFER plate represent standard fluorescence, while the
@@ -199,3 +203,35 @@ T0Black = T0Black[T0Black["PlateCol"] <= 7]
 # plates? Or does the substrate control only invole column 10 of the sample
 # plate? Check Steve's R script to see how he handle the controls, especially
 # the homogenate control
+
+# Setting black plate columns that use a specific substrate for quench control
+MUBcols = [1, 2, 3, 4, 5, 7]
+AMCcol = 6
+MUB_DF["PlateCol"] = MUBcols[0]
+MUB_DF_to_attach = MUB_DF
+
+for column in MUBcols[1:]:
+    MUB_DF_to_attach["PlateCol"] = column
+    MUB_DF = pd.concat(objs=[MUB_DF, MUB_DF_to_attach], axis=0)
+MUB_DF = MUB_DF.sort_values(by=["PlateCol", "Plot"])
+# MUB_DF = MUB_DF[MUB_DF["PlateCol"] < 8]
+AMC_DF["PlateCol"] = AMCcol
+
+# Merging AMC_DF & MUB_DF into a single dataframe of standard fluorescence
+# & quench control. This subsequent dataframe will be merged back into
+# T0Black
+standardDF = pd.concat(objs=[MUB_DF, AMC_DF], axis=0)
+
+# Renaming columns in the standard data frame
+newColumnsDict = {"Fluorescence": "QuenchCtrl",
+                  "BufferReading": "StandardFluorescence"}
+standardDF = standardDF.rename(columns=newColumnsDict)
+standardDF = standardDF.sort_values(by=["PlateCol", "Plot"])
+
+# Merging standard dataframe back into T0Black
+# labelsToMergeOn = []
+# T0Black = pd.merge(left, right)
+
+# %%
+for column in MUBcols:
+    print(column)
