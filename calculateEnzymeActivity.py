@@ -35,10 +35,13 @@ dryMassFiles = os.listdir(dryMassFolderPath)
 
 # %%
 # Processing dry weight data before using it for enzyme activity calculations
-# Processing includes (1) renaming columns; (2) Filling in time points;
+# Processing includes:
+# (1) renaming columns
+# (2) Filling in time points;
 # (3) Adding columns for wet and dry assay mass and proportion of leaf litter
-# as dry mass and calculating proportion dry assay mass; and (4) isolating
-# timepoints T0, T3, and T5 (T6 will be isolated from a different spreadsheet)
+# as dry mass and calculating proportion dry assay mass; and
+# (4) isolating timepoints T0, T3, and T5 (T6 will be isolated from a different
+# spreadsheet)
 
 # The following line makes pandas print all columns
 pd.set_option("display.max_columns", None)
@@ -88,9 +91,11 @@ dryDFprocessed = dryDFfull.drop(labels=colsToDrop, axis=1)
 # (1) Process long sample names in the enzyme file;
 # (2) Check to see if the names in the enzyme files match the names in the dry
 # weights files; if there isn't a match, then some samples are missing or some
-# samples are redone; (3) rearrange the buffer plate data in a way to ease
-# calculations (4) add additional data to the enzyme data frame, which
-# consists of dry assay mass and vegetation & precipitation treatments
+# samples are redone
+# (3) rearrange control readings (substrate, homogenate, and quench controls)
+# to ease calculations
+# (4) add additional data to the enzyme data frame, which consists of dry assay
+# mass and vegetation & precipitation treatments
 
 # Obtaining a list of samples to check if plate data contain samples
 samples = dryDFfull.groupby("ID")["ID"].count().index.tolist()
@@ -142,9 +147,7 @@ T0Black = T0Black.drop(labels="Time", axis=1)
 for index, row in T0Black.iterrows():
     rowID = row["ID"]
     if rowID != "B":
-        # list() splits the string into a list of individual characters
-        splittedID = list(rowID)
-        precip = splittedID[-2]
+        precip = rowID[-2]
         plot = int(rowID[:-3])
         if plot <= 24:
             T0Black.loc[index, "Vegetation"] = "Grassland"
@@ -154,10 +157,22 @@ for index, row in T0Black.iterrows():
             T0Black.loc[index, "Precip"] = "Ambient"
         elif precip == "R":
             T0Black.loc[index, "Precip"] = "Reduced"
-        print(T0Black.iloc[index])
 
-# (3) Rearranging buffer plate data. I intend that, for each sample, the
+# (3) Rearranging control readings. I intend that, for each sample, the
 # absorbance in a particular well will also correspond with the absorbance
 # reading in the buffer plate at that particular well. There will be 2 columns
 # one column to hold absorbance for a particular well of the sample while the
-# second column holds the absorbance for the same well for the buffer plate
+# second column holds the absorbance for the same well for the buffer plate.
+# I will also manipulate the quench & homogenate control readings to make sure
+# that they are side by side with the sample readings
+
+bufferDF = T0Black[T0Black["ID"] == "B"]
+T0Black = T0Black[T0Black["ID"] != "B"]
+oldCols = T0Black.columns.tolist()
+colsToDrop = oldCols[-4:]
+bufferDF = bufferDF.drop(labels=colsToDrop, axis=1)
+bufferDF = bufferDF.rename(mapper={"Fluorescence": "BufferReading"}, axis=1)
+
+T0Black = pd.merge(T0Black, bufferDF, how="inner", on=["Well", "Assay date"])
+# sortCols = ["ID"]
+# T0Black = T0Black.sort_values(by=sortCols, axis=1)
