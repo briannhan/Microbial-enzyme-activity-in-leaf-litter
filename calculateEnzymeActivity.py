@@ -205,33 +205,44 @@ T0Black = T0Black[T0Black["PlateCol"] <= 7]
 # the homogenate control
 
 # Setting black plate columns that use a specific substrate for quench control
-MUBcols = [1, 2, 3, 4, 5, 7]
-AMCcol = 6
-MUB_DF["PlateCol"] = MUBcols[0]
-MUB_DF_to_attach = MUB_DF
-
-for column in MUBcols[1:]:
-    MUB_DF_to_attach["PlateCol"] = column
-    MUB_DF = pd.concat(objs=[MUB_DF, MUB_DF_to_attach], axis=0)
-MUB_DF = MUB_DF.sort_values(by=["PlateCol", "Plot"])
-# MUB_DF = MUB_DF[MUB_DF["PlateCol"] < 8]
-AMC_DF["PlateCol"] = AMCcol
+MUB_DF1 = MUB_DF.copy()
+MUB_DF1["PlateCol"] = 1
+MUB_DF2 = MUB_DF.copy()
+MUB_DF2["PlateCol"] = 2
+MUB_DF3 = MUB_DF.copy()
+MUB_DF3["PlateCol"] = 3
+MUB_DF4 = MUB_DF.copy()
+MUB_DF4["PlateCol"] = 4
+MUB_DF5 = MUB_DF.copy()
+MUB_DF5["PlateCol"] = 5
+AMC_DF["PlateCol"] = 6
+MUB_DF7 = MUB_DF.copy()
+MUB_DF7["PlateCol"] = 7
 
 # Merging AMC_DF & MUB_DF into a single dataframe of standard fluorescence
 # & quench control. This subsequent dataframe will be merged back into
 # T0Black
-standardDF = pd.concat(objs=[MUB_DF, AMC_DF], axis=0)
+standardDF12 = pd.concat(objs=[MUB_DF1, MUB_DF2], axis=0)
+standardDF34 = pd.concat(objs=[MUB_DF3, MUB_DF4], axis=0)
+standardDF1234 = pd.concat(objs=[standardDF12, standardDF34], axis=0)
+standardDF56 = pd.concat(objs=[MUB_DF5, AMC_DF], axis=0)
+standardDF567 = pd.concat(objs=[standardDF56, MUB_DF7], axis=0)
+standardDF = pd.concat(objs=[standardDF1234, standardDF567], axis=0)
+standardDF = standardDF.sort_values(by=["PlateCol", "Plot"])
+# This is the right way to sort any dataframe that's derived from the enzyme
+# data to ensure that the sorted data frame looks like the original file
 
 # Renaming columns in the standard data frame
 newColumnsDict = {"Fluorescence": "QuenchCtrl",
                   "BufferReading": "StandardFluorescence"}
 standardDF = standardDF.rename(columns=newColumnsDict)
-standardDF = standardDF.sort_values(by=["PlateCol", "Plot"])
 
 # Merging standard dataframe back into T0Black
-# labelsToMergeOn = []
-# T0Black = pd.merge(left, right)
+labelsToMergeOn = ["Assay date", "ID", "PlateRow", "PlateCol", "Dry assay (g)",
+                   "Vegetation", "Precip", "Plot"]
+T0Black = pd.merge(T0Black, standardDF, how="inner", on=labelsToMergeOn)
+T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])  # sorting T0Black
+T0Black = T0Black.rename(columns={"BufferReading": "SubstrateCtrl"})
 
-# %%
-for column in MUBcols:
-    print(column)
+# Manipulating homogenate control data
+
