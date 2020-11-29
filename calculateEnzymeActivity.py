@@ -5,7 +5,8 @@ Created on Wed Nov 25 23:24:06 2020
 @author: Brian Chung
 The purpose of this script is to calculate the enzyme activity of the litter
 from Loma Ridge. This script processes enzyme activity & litter dry weight
-data.
+data. Refer to the 2020-11-10-enzyme-descriptive-metadata.docx Word Document
+for a description of how assays are carried out.
 
 I delineate this script into sections using the following characters: # %%
 These sections are visualized in the Spyder IDE of the Anaconda distribution
@@ -244,5 +245,28 @@ T0Black = pd.merge(T0Black, standardDF, how="inner", on=labelsToMergeOn)
 T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])  # sorting T0Black
 T0Black = T0Black.rename(columns={"BufferReading": "SubstrateCtrl"})
 
-# Manipulating homogenate control data
+""" The following memo is for me to follow, so it might not make sense to
+random online viewers of this project. This memo mentions a script by my PI
+that I will hereafter refer to as "Steve's script". Random online viewers of
+this project will, of course, not know what this script is. To summarize, the
+script is an example I follow to develop this calculateEnzymeActivity.py
+script. Thus far, I've been wondering whether I should use column 10 of both
+the sample plates and buffer plates, but it looks like my PI only uses column
+10 of the sample plate, so I will also use only column 10 of the sample plate.
+Column 10 of the buffer plates seem useless, as their fluorescence tend to be
+0 are close to 0 and so does not change enzyme activities much when added or
+subtracted.
 
+So I read Steve's script. Line 55 is where he calculates the enzyme activity
+for black plates. He only uses column 10 of the sample plate, not of the
+buffer plate, if I'm interpreting his script correctly. He classifies
+black plate columns using the EnzymePlateInfo.xlsx spreadsheet. Column 10 of
+the buffer plate is classified as "Buffer" while for a sample plate it's
+classified as "HomBlank". While "Buffer" was used in line 32 of the script,
+it wasn't actually used in line 55. On the other hand, HomBlank is used in
+line 55, so this makes me think that Steve only uses column 10 of the sample
+plate
+
+So column 10 of only the SAMPLE plates will serve as the homogenate control,
+controlling for any fluorescence that the homogenate itself might have"""
+# Manipulating homogenate control data
