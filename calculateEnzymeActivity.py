@@ -207,28 +207,21 @@ T0Black = T0Black[T0Black["PlateCol"] <= 7]
 
 # Setting black plate columns that use a specific substrate for quench control
 MUB_DF1 = MUB_DF.copy()
-MUB_DF1["PlateCol"] = 1
 MUB_DF2 = MUB_DF.copy()
-MUB_DF2["PlateCol"] = 2
 MUB_DF3 = MUB_DF.copy()
-MUB_DF3["PlateCol"] = 3
 MUB_DF4 = MUB_DF.copy()
-MUB_DF4["PlateCol"] = 4
 MUB_DF5 = MUB_DF.copy()
-MUB_DF5["PlateCol"] = 5
-AMC_DF["PlateCol"] = 6
 MUB_DF7 = MUB_DF.copy()
-MUB_DF7["PlateCol"] = 7
+
+standardFrames = [MUB_DF1, MUB_DF2, MUB_DF3, MUB_DF4, MUB_DF5, AMC_DF, MUB_DF7]
+for n in range(len(standardFrames)):
+    currentDF = standardFrames[n]
+    currentDF["PlateCol"] = n + 1
 
 # Merging AMC_DF & MUB_DF into a single dataframe of standard fluorescence
 # & quench control. This subsequent dataframe will be merged back into
 # T0Black
-standardDF12 = pd.concat(objs=[MUB_DF1, MUB_DF2], axis=0)
-standardDF34 = pd.concat(objs=[MUB_DF3, MUB_DF4], axis=0)
-standardDF1234 = pd.concat(objs=[standardDF12, standardDF34], axis=0)
-standardDF56 = pd.concat(objs=[MUB_DF5, AMC_DF], axis=0)
-standardDF567 = pd.concat(objs=[standardDF56, MUB_DF7], axis=0)
-standardDF = pd.concat(objs=[standardDF1234, standardDF567], axis=0)
+standardDF = pd.concat(objs=standardFrames, axis=0)
 standardDF = standardDF.sort_values(by=["PlateCol", "Plot"])
 # This is the right way to sort any dataframe that's derived from the enzyme
 # data to ensure that the sorted data frame looks like the original file
