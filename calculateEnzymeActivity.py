@@ -263,3 +263,15 @@ plate
 So column 10 of only the SAMPLE plates will serve as the homogenate control,
 controlling for any fluorescence that the homogenate itself might have"""
 # Manipulating homogenate control data
+
+"""Let's talk about how to plot the data. For each sample, let's make a figure
+with 7 subplots, one for each enzyme. Let's create a function where each call
+plots a single sample. To plot all samples, I'll use a for loop to loop through
+all the sample names and for each sample name, I'll plot that sample.
+
+And now, the body of the function. The function will filter the T0Black data
+frame down to a single sample. The function will also create 7 data frames,
+1 for each enzyme. It'll then call the plot() and scatter() methods of
+matplotlib.pyplot 7 times, 1 for each enzyme, where the x-values would be the
+substrate concentrations and the y-values would be the calculted enzyme
+activities"""
