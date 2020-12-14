@@ -236,7 +236,7 @@ standardDF = standardDF.sort_values(by=["PlateCol", "Plot"])
 # back into T0 Black, which already contains the information in the redundant
 # columns
 newColumnsDict = {"Assay": "QuenchCtrl",
-                  "BufferReading": "StandardFluorescence"}
+                  "BufferReading": "StanFluo"}
 stanColsToDrop = ["Dry assay (g)", "Vegetation", "Precip"]
 standardDF = standardDF.rename(columns=newColumnsDict)
 standardDF = standardDF.drop(labels=stanColsToDrop, axis=1)
@@ -280,6 +280,7 @@ homCtrlColsToDrop = ["Well", "Assay date", "PlateCol", "Dry assay (g)",
 homCtrlDF = homCtrlDF.drop(labels=homCtrlColsToDrop, axis=1)
 homCtrlMergeLabels = ["ID", "Plot", "PlateRow"]
 T0Black = pd.merge(T0Black, homCtrlDF, how="inner", on=homCtrlMergeLabels)
+T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])
 
 """Let's talk about how to plot the data. For each sample, let's make a figure
 with 7 subplots, one for each enzyme. Let's create a function where each call
@@ -295,3 +296,60 @@ activities"""
 # %%
 # Purpose: Calculate hydrolytic enzyme activity of T0Black using formulas that
 # convert fluorescence to enzyme activity in German et al 2011
+# Tasks:
+# (1) Calculating quench coefficients
+# (2) Making a dataframe of enzyme plate information, containing enzyme name,
+# standard for the enzyme, substrate concentrations, and standard amounts
+# (3) Calculating emission coefficients
+# (4) Calculating net fluorescence
+# (5) Calculating enzyme activity
+
+# Calculating Quench Coefficients. Each quench coefficient is specific
+# to a particular row of a sample plate. Quench Coefficients are unitless
+T0Black["QuenchCoef"] = ((T0Black["QuenchCtrl"] - T0Black["HomCtrl"])
+                         / T0Black["StanFluo"])
+
+# Calculating substrate concentrations
+# Making dataframe to hold enzyme name, standard for the enzyme, substrate
+# concentrations, and standard amounts. This dataframe essentially holds
+# certain plate information
+AMCamount = 62.5*125/1000
+"""Amount of MUB standard in standard and quench control wells.
+62.5 micromolar x 125 microliter / 1000 (conversion factor)
+units: nanomoles"""
+MUBamount = 25*125/1000
+"""Amount of AMC standard in standard and quench control wells.
+25 micromolar x 125 microliter / 1000 (conversion factor)
+units: nanomoles"""
+plateCols = np.linspace(start=1, stop=7, num=7).tolist()
+enzymeName = ["AG", "AP", "BG", "BX", "CBH", "LAP", "NAG"]
+standardAmount = [MUBamount, MUBamount, MUBamount, MUBamount, MUBamount,
+                  AMCamount, MUBamount]
+plateInfoDic = {"PlateCol": plateCols, "Enzyme": enzymeName,
+                "StanAmt": standardAmount}
+plateInfo = pd.DataFrame(plateInfoDic)
+T0Black = pd.merge(T0Black, plateInfo, on="PlateCol")
+
+# Calculating Emission Coefficients. Each coefficient is specific to a row
+# of a plate. Units: nmol^-1
+assayVol = 0.250  # mL. Volume of assay well, which consists of
+# substrate + homogenate
+stanVol = 0.250  # mL. Volume of quench and standard wells, which
+# consists of standard + homogenate/buffer
+T0Black["EmisCoef"] = ((T0Black["StanFluo"]*stanVol)
+                       / (T0Black["StanAmt"]*assayVol))
+
+# Calculating net fluorescence. Units are fluorescence units, which is
+# essentially meaningless and so can be considered as unitless
+T0Black["NetFluo"] = (((T0Black["Assay"] - T0Black["HomCtrl"])
+                       / T0Black["QuenchCoef"]) - T0Black["SubCtrl"])
+
+# Calculating enzyme activity. Units are nmol g^-1 h^-1. This enzyme activity
+# had been normalized for the mass of litter used in the assay
+incubaTime = 4  # Hours. Each plate was left to sit for 4 hours
+bufferVol = 150  # mL. Volume of buffer used in preparing a single homogenate
+homVol = 0.125  # mL. Volume of homogenate that is pipetted into each well
+# in columns 1-7 in each sample plate.
+T0Black["Activity"] = ((T0Black["NetFluo"]*bufferVol)
+                       / (T0Black["EmisCoef"]*homVol*incubaTime
+                          * T0Black["Dry assay (g)"]))
