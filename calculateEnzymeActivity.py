@@ -88,21 +88,21 @@ dryDFprocessed = dryDFfull.drop(labels=colsToDrop, axis=1)
 # other words, I'm going to do some pre-processing for a single enzyme file
 # in this section before going on to calculate enzyme activities in the
 # following sections.
+
+# Purpose: begin pre-processing enzyme data from T0 black
 # The tasks for this section are:
 # (1) Process long sample names in the enzyme file;
 # (2) Check to see if the names in the enzyme files match the names in the dry
 # weights files; if there isn't a match, then some samples are missing or some
 # samples are redone
-# (3) rearrange control readings (substrate, homogenate, and quench controls)
-# to ease calculations
-# (4) add additional data to the enzyme data frame, which consists of dry assay
+# (3) add additional data to the enzyme data frame, which consists of dry assay
 # mass and vegetation & precipitation treatments
 
 # Obtaining a list of samples to check if plate data contain samples
 samples = dryDFfull.groupby("ID")["ID"].count().index.tolist()
 
 # Reading in T0 black plates
-ogEnzymeCols = ["Well", "Long sample name", "Fluorescence"]
+ogEnzymeCols = ["Well", "Long sample name", "Assay"]
 T0BlackPath = enzymeFolderPath/enzymeFiles[0]
 T0Black = pd.read_csv(T0BlackPath, '\t', header=None, names=ogEnzymeCols)
 
@@ -167,43 +167,48 @@ for index, row in T0Black.iterrows():
         elif precip == "R":
             T0Black.loc[index, "Precip"] = "Reduced"
         T0Black.loc[index, "Plot"] = plot
-
-# (3) Rearranging control readings. I intend that, for each sample, the
+# %%
+# Purpose: finish pre-processing of T0 Black by rearranging control readings
+# I intend that, for each sample, the
 # fluorescence in a particular well will also correspond with the fluorescence
 # reading in the buffer plate at that particular well. There will be 2 columns
 # one column to hold fluorescence for a particular well of the sample while the
 # second column holds the fluorescence for the same well for the buffer plate.
 # I will also manipulate the quench & homogenate control readings to make sure
 # that they are side by side with the sample readings
+# Tasks of this section:
+# (1) Manipulating substrate control
+# (2) Manipulating quench control & standard fluorescence
+# (3) Manipulating homogenate control
+# Note on running this cell: You cannot run this cell all by itself. You must
+# run the prior cell (which reads in T0Black) before you can run this cell.
 
-# Placing the buffer & sample readings side by side. The buffer readings for
-# columns 1-7 on the black plate will serve as the substrate control
+# (1) Manipulating substrate control data by placing the buffer & sample
+# readings side by side. The buffer readings for columns 1-7 on the black plate
+# will serve as the substrate control.
 bufferDF = T0Black[T0Black["ID"] == "B"]
 T0Black = T0Black[T0Black["ID"] != "B"]
 oldCols = T0Black.columns.tolist()
 colsToDrop = ["ID", "Dry assay (g)", "Vegetation", "Precip", "Plot"]
 bufferDF = bufferDF.drop(labels=colsToDrop, axis=1)
-bufferDF = bufferDF.rename(mapper={"Fluorescence": "BufferReading"}, axis=1)
-labelsToMergeOn = ["Well", "Assay date", "PlateRow", "PlateCol"]
-T0Black = pd.merge(T0Black, bufferDF, how="inner", on=labelsToMergeOn)
+bufferDF = bufferDF.rename(mapper={"Assay": "BufferReading"}, axis=1)
+subCtrlMergeLabels = ["Well", "Assay date", "PlateRow", "PlateCol"]
+T0Black = pd.merge(T0Black, bufferDF, how="inner", on=subCtrlMergeLabels)
 T0Black = T0Black.sort_values(by=["PlateCol", "Plot"])
 
 # Calculations of enzyme activity follow from the German et al 2011 paper:
 # Optimization of hydrolytic and oxidative enzyme methods for ecosystem studies
 # Refer to this paper for reference if necessary
+
+# (2) Manipulating standard fluorescence and quench control readings.
+# columns 8 & 9 of the BUFFER plate represent standard fluorescence, while the
+# same columns in a SAMPLE plate represent quench fluorescence
 AMC_DF = T0Black[T0Black["PlateCol"] == 8]
 AMC_DF = AMC_DF.drop(labels="Well", axis=1)
 MUB_DF = T0Black[T0Black["PlateCol"] == 9]
 MUB_DF = MUB_DF.drop(labels="Well", axis=1)
-homogenateConDF = T0Black[T0Black["PlateCol"] == 10]
+homCtrlDF = T0Black[T0Black["PlateCol"] == 10]
 T0Black = T0Black[T0Black["PlateCol"] <= 7]
-# columns 8 & 9 of the BUFFER plate represent standard fluorescence, while the
-# same columns in a SAMPLE plate represent quench fluorescence
-# Now, what about the substrate control? The substrate control is in column 10.
-# So, does the substrate control involve column 10 of both the sample & buffer
-# plates? Or does the substrate control only invole column 10 of the sample
-# plate? Check Steve's R script to see how he handle the controls, especially
-# the homogenate control
 
 # Setting black plate columns that use a specific substrate for quench control
 MUB_DF1 = MUB_DF.copy()
@@ -226,17 +231,22 @@ standardDF = standardDF.sort_values(by=["PlateCol", "Plot"])
 # This is the right way to sort any dataframe that's derived from the enzyme
 # data to ensure that the sorted data frame looks like the original file
 
-# Renaming columns in the standard data frame
-newColumnsDict = {"Fluorescence": "QuenchCtrl",
+# Renaming columns in the standard data frame and dropping redundant columns.
+# I deem certain columns as redundant because this dataframe will be merged
+# back into T0 Black, which already contains the information in the redundant
+# columns
+newColumnsDict = {"Assay": "QuenchCtrl",
                   "BufferReading": "StandardFluorescence"}
+stanColsToDrop = ["Dry assay (g)", "Vegetation", "Precip"]
 standardDF = standardDF.rename(columns=newColumnsDict)
+standardDF = standardDF.drop(labels=stanColsToDrop, axis=1)
 
 # Merging standard dataframe back into T0Black
-labelsToMergeOn = ["Assay date", "ID", "PlateRow", "PlateCol", "Dry assay (g)",
-                   "Vegetation", "Precip", "Plot"]
-T0Black = pd.merge(T0Black, standardDF, how="inner", on=labelsToMergeOn)
+stanMergeLabels = ["Assay date", "ID", "PlateRow", "PlateCol", "Plot"]
+T0Black = pd.merge(T0Black, standardDF, how="inner", on=stanMergeLabels)
 T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])  # sorting T0Black
-T0Black = T0Black.rename(columns={"BufferReading": "SubstrateCtrl"})
+T0Black = T0Black.rename(columns={"BufferReading": "SubCtrl"})
+
 
 """ The following memo is for me to follow, so it might not make sense to
 random online viewers of this project. This memo mentions a script by my PI
@@ -262,7 +272,14 @@ plate
 
 So column 10 of only the SAMPLE plates will serve as the homogenate control,
 controlling for any fluorescence that the homogenate itself might have"""
-# Manipulating homogenate control data
+# (3) Manipulating homogenate control data. I'll also be dropping redundant
+# columns
+homCtrlDF = homCtrlDF.rename(mapper={"Assay": "HomCtrl"}, axis=1)
+homCtrlColsToDrop = ["Well", "Assay date", "PlateCol", "Dry assay (g)",
+                     "Vegetation", "Precip", "BufferReading"]
+homCtrlDF = homCtrlDF.drop(labels=homCtrlColsToDrop, axis=1)
+homCtrlMergeLabels = ["ID", "Plot", "PlateRow"]
+T0Black = pd.merge(T0Black, homCtrlDF, how="inner", on=homCtrlMergeLabels)
 
 """Let's talk about how to plot the data. For each sample, let's make a figure
 with 7 subplots, one for each enzyme. Let's create a function where each call
@@ -275,3 +292,6 @@ frame down to a single sample. The function will also create 7 data frames,
 matplotlib.pyplot 7 times, 1 for each enzyme, where the x-values would be the
 substrate concentrations and the y-values would be the calculted enzyme
 activities"""
+# %%
+# Purpose: Calculate hydrolytic enzyme activity of T0Black using formulas that
+# convert fluorescence to enzyme activity in German et al 2011
