@@ -304,15 +304,17 @@ activities"""
 # (4) Calculating net fluorescence
 # (5) Calculating enzyme activity
 
-# Calculating Quench Coefficients. Each quench coefficient is specific
+# (1) Calculating Quench Coefficients. Each quench coefficient is specific
 # to a particular row of a sample plate. Quench Coefficients are unitless
 T0Black["QuenchCoef"] = ((T0Black["QuenchCtrl"] - T0Black["HomCtrl"])
                          / T0Black["StanFluo"])
 
-# Calculating substrate concentrations
-# Making dataframe to hold enzyme name, standard for the enzyme, substrate
+# (2) Making dataframe to hold enzyme name, standard for the enzyme, substrate
 # concentrations, and standard amounts. This dataframe essentially holds
-# certain plate information
+# certain plate information and is called plateInfo.
+# plateInfo will, at first, hold the enzyme name, standard specific to the
+# enzyme, and standard amounts. I'm creating another dataframe of enzyme
+# concentrations to merge back into plateInfo.
 AMCamount = 62.5*125/1000
 """Amount of MUB standard in standard and quench control wells.
 62.5 micromolar x 125 microliter / 1000 (conversion factor)
@@ -328,24 +330,55 @@ standardAmount = [MUBamount, MUBamount, MUBamount, MUBamount, MUBamount,
 plateInfoDic = {"PlateCol": plateCols, "Enzyme": enzymeName,
                 "StanAmt": standardAmount}
 plateInfo = pd.DataFrame(plateInfoDic)
-T0Black = pd.merge(T0Black, plateInfo, on="PlateCol")
+# Making dataframe of hydrolytic enzyme concentrations to merge back into
+# plateInfo.
+AGnames = 8*["AG"]
+APnames = 8*["AP"]
+BGnames = 8*["BG"]
+BXnames = 8*["BX"]
+CBHnames = 8*["CBH"]
+LAPnames = 8*["LAP"]
+NAGnames = 8*["NAG"]
+enzymesLists = [AGnames, APnames, BGnames, BXnames,
+                CBHnames, LAPnames, NAGnames]
+longEnzymesNames = [name for outerList in enzymesLists for name in outerList]
+subProps = np.geomspace(1, 1/128, num=8)
+# Units of substrate concentrations are in micromolar
+AGconcen = (500*subProps).tolist()
+APconcen = (2000*subProps).tolist()
+BGconcen = (500*subProps).tolist()
+BXconcen = (500*subProps).tolist()
+CBHconcen = (250*subProps).tolist()
+LAPconcen = (500*subProps).tolist()
+NAGconcen = (1000*subProps).tolist()
+subConcenLists = [AGconcen, APconcen, BGconcen, BXconcen, CBHconcen,
+                  LAPconcen, NAGconcen]
+subConcen = [concen for outer in subConcenLists for concen in outer]
+plateRow = 7*list("ABCDEFGH")
+blackSubConcenDict = {"PlateRow": plateRow, "Enzyme": longEnzymesNames,
+                      "SubConcen": subConcen}
+blackSubConcenDF = pd.DataFrame(blackSubConcenDict)
+plateInfo = pd.merge(plateInfo, blackSubConcenDF, how="inner", on="Enzyme")
+T0Black = pd.merge(T0Black, plateInfo, on=["PlateCol", "PlateRow"])
 
-# Calculating Emission Coefficients. Each coefficient is specific to a row
+# (3) Calculating Emission Coefficients. Each coefficient is specific to a row
 # of a plate. Units: nmol^-1
 assayVol = 0.250  # mL. Volume of assay well, which consists of
-# substrate + homogenate
+# substrate (0.125 mL) + homogenate (0.125 mL)
 stanVol = 0.250  # mL. Volume of quench and standard wells, which
-# consists of standard + homogenate/buffer
+# consists of standard (0.125 mL) +
+# either homogenate(sample plate, 0.125 mL) or buffer(buffer plate, 0.125 mL)
 T0Black["EmisCoef"] = ((T0Black["StanFluo"]*stanVol)
                        / (T0Black["StanAmt"]*assayVol))
 
-# Calculating net fluorescence. Units are fluorescence units, which is
+# (4) Calculating net fluorescence. Units are fluorescence units, which is
 # essentially meaningless and so can be considered as unitless
 T0Black["NetFluo"] = (((T0Black["Assay"] - T0Black["HomCtrl"])
                        / T0Black["QuenchCoef"]) - T0Black["SubCtrl"])
 
-# Calculating enzyme activity. Units are nmol g^-1 h^-1. This enzyme activity
-# had been normalized for the mass of litter used in the assay
+# (5) Calculating enzyme activity. Initial units are nmol g^-1 h^-1. Final
+# units will be micromole g^-1 h^-1. This enzyme activity had been normalized
+# for the mass of litter used in the assay
 incubaTime = 4  # Hours. Each plate was left to sit for 4 hours
 bufferVol = 150  # mL. Volume of buffer used in preparing a single homogenate
 homVol = 0.125  # mL. Volume of homogenate that is pipetted into each well
@@ -353,3 +386,75 @@ homVol = 0.125  # mL. Volume of homogenate that is pipetted into each well
 T0Black["Activity"] = ((T0Black["NetFluo"]*bufferVol)
                        / (T0Black["EmisCoef"]*homVol*incubaTime
                           * T0Black["Dry assay (g)"]))
+T0Black["Activity"] = T0Black["Activity"]/1000
+T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])
+# %%
+# Purpose: plotting hydrolytic enzyme activity of T0. I won't be doing any
+# nonlinear regression to fit the ECA model to the enzyme activity just yet
+'''for sample in samples:
+    sampleDF = T0Black[T0Black["ID"] == sample]'''
+# First, let's plot a single sample: 4LXX
+firstSample = "4LXX"
+firstDF = T0Black[T0Black["ID"] == firstSample]
+vegetation = firstDF.groupby("Vegetation")["Vegetation"].count().index.tolist()
+vegetation = vegetation[0]
+precip = firstDF.groupby("Precip")["Precip"].count().index.tolist()
+precip = precip[0]
+figTitle = "{0:}, {1:}, {2:}".format(firstSample, vegetation, precip)
+firstFigure = py.figure(num=figTitle, figsize=(25, 10))
+
+AG = firstFigure.add_subplot(2, 4, 1)  # Making AG subplot
+AGdf = firstDF[firstDF["Enzyme"] == "AG"]
+AG.plot(AGdf["SubConcen"], AGdf["Activity"])
+AG.scatter(AGdf["SubConcen"], AGdf["Activity"])
+py.title("4LXX, Grassland, Ambient, AG")
+AG.set_xlabel("Substrate concentration (micromolar)")
+AG.set_ylabel("Activity (micromole g-1 h-1)")
+
+AP = firstFigure.add_subplot(2, 4, 2)  # Making AP subplot
+APdf = firstDF[firstDF["Enzyme"] == "AP"]
+AP.plot(APdf["SubConcen"], APdf["Activity"])
+AP.scatter(APdf["SubConcen"], APdf["Activity"])
+py.title("4LXX, Grassland, Ambient, AP")
+AP.set_xlabel("Substrate concentration (micromolar)")
+AP.set_ylabel("Activity (micromole g-1 h-1)")
+
+BG = firstFigure.add_subplot(2, 4, 3)  # Making BG subplot
+BGdf = firstDF[firstDF["Enzyme"] == "BG"]
+BG.plot("SubConcen", "Activity", data=BGdf)
+BG.scatter("SubConcen", "Activity", data=BGdf)
+py.title("4LXX, Grassland, Ambient, BG")
+BG.set_xlabel("Substrate concentration (micromolar)")
+BG.set_ylabel("Activity (micromole g-1 h-1)")
+
+BX = firstFigure.add_subplot(2, 4, 4)  # Making BX subplot
+BXdf = firstDF[firstDF["Enzyme"] == "BX"]
+BX.plot("SubConcen", "Activity", data=BXdf)
+BX.scatter("SubConcen", "Activity", data=BXdf)
+py.title("4LXX, Grassland, Ambient, BX")
+BX.set_xlabel("Substrate concentration (micromolar)")
+BX.set_ylabel("Activity (micromole g-1 h-1)")
+
+CBH = firstFigure.add_subplot(2, 4, 5)  # Making CBH subplot
+CBHdf = firstDF[firstDF["Enzyme"] == "CBH"]
+CBH.plot("SubConcen", "Activity", data=CBHdf)
+CBH.scatter("SubConcen", "Activity", data=CBHdf)
+py.title("4LXX, Grassland, Ambient, CBH")
+CBH.set_xlabel("Substrate concentration (micromolar)")
+CBH.set_ylabel("Activity (micromole g-1 h-1)")
+
+LAP = firstFigure.add_subplot(2, 4, 6)  # Making LAP subplot
+LAPdf = firstDF[firstDF["Enzyme"] == "LAP"]
+LAP.plot("SubConcen", "Activity", data=LAPdf)
+LAP.scatter("SubConcen", "Activity", data=LAPdf)
+py.title("4LXX, Grassland, Ambient, LAP")
+LAP.set_xlabel("Substrate concentration (micromolar)")
+LAP.set_ylabel("Activity (micromole g-1 h-1)")
+
+NAG = firstFigure.add_subplot(2, 4, 7)  # Making NAG subplot
+NAGdf = firstDF[firstDF["Enzyme"] == "NAG"]
+NAG.plot("SubConcen", "Activity", data=NAGdf)
+NAG.scatter("SubConcen", "Activity", data=NAGdf)
+py.title("4LXX, Grassland, Ambient, NAG")
+NAG.set_xlabel("Substrate concentration (micromolar)")
+NAG.set_ylabel("Activity (micromole g-1 h-1)")
