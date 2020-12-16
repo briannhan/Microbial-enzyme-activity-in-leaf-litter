@@ -23,7 +23,7 @@ import pandas as pd
 import matplotlib.pyplot as py
 import os
 from pathlib import Path
-
+import enzymeWrangling as ew
 # %%
 # Making file & folder paths to read in data
 workingDirectory = Path(os.getcwd())
@@ -210,7 +210,7 @@ MUB_DF = MUB_DF.drop(labels="Well", axis=1)
 homCtrlDF = T0Black[T0Black["PlateCol"] == 10]
 T0Black = T0Black[T0Black["PlateCol"] <= 7]
 
-# Setting black plate columns that use a specific substrate for quench control
+# Setting black plate columns to their respective standards.
 MUB_DF1 = MUB_DF.copy()
 MUB_DF2 = MUB_DF.copy()
 MUB_DF3 = MUB_DF.copy()
@@ -297,23 +297,18 @@ activities"""
 # Purpose: Calculate hydrolytic enzyme activity of T0Black using formulas that
 # convert fluorescence to enzyme activity in German et al 2011
 # Tasks:
-# (1) Calculating quench coefficients
-# (2) Making a dataframe of enzyme plate information, containing enzyme name,
+# (1) Making a dataframe of enzyme plate information, containing enzyme name,
 # standard for the enzyme, substrate concentrations, and standard amounts
+# (2) Calculating quench coefficients
 # (3) Calculating emission coefficients
 # (4) Calculating net fluorescence
 # (5) Calculating enzyme activity
 
-# (1) Calculating Quench Coefficients. Each quench coefficient is specific
-# to a particular row of a sample plate. Quench Coefficients are unitless
-T0Black["QuenchCoef"] = ((T0Black["QuenchCtrl"] - T0Black["HomCtrl"])
-                         / T0Black["StanFluo"])
-
-# (2) Making dataframe to hold enzyme name, standard for the enzyme, substrate
+# (1) Making dataframe to hold enzyme name, standard for the enzyme, substrate
 # concentrations, and standard amounts. This dataframe essentially holds
 # certain plate information and is called plateInfo.
-# plateInfo will, at first, hold the enzyme name, standard specific to the
-# enzyme, and standard amounts. I'm creating another dataframe of enzyme
+# plateInfo will, at first, hold the enzyme name and amounts of standards in
+# columns 8 & 9. I'm creating another dataframe of enzyme
 # concentrations to merge back into plateInfo.
 AMCamount = 62.5*125/1000
 """Amount of MUB standard in standard and quench control wells.
@@ -361,6 +356,12 @@ blackSubConcenDF = pd.DataFrame(blackSubConcenDict)
 plateInfo = pd.merge(plateInfo, blackSubConcenDF, how="inner", on="Enzyme")
 T0Black = pd.merge(T0Black, plateInfo, on=["PlateCol", "PlateRow"])
 
+
+# (2) Calculating Quench Coefficients. Each quench coefficient is specific
+# to a particular row of a sample plate. Quench Coefficients are unitless
+T0Black["QuenchCoef"] = ((T0Black["QuenchCtrl"] - T0Black["HomCtrl"])
+                         / T0Black["StanFluo"])
+
 # (3) Calculating Emission Coefficients. Each coefficient is specific to a row
 # of a plate. Units: nmol^-1
 assayVol = 0.250  # mL. Volume of assay well, which consists of
@@ -403,69 +404,25 @@ for sample in samples:
     precip = precip[0]
     figTitle = "{0:}, {1:}, {2:}, T0 Black".format(sample, vegetation, precip)
     py.figure(num=figTitle, figsize=(25, 10))
-
-    py.subplot(2, 4, 1)  # Making AG subplot
-    AGdf = sampleDF[sampleDF["Enzyme"] == "AG"]
-    py.plot(AGdf["SubConcen"], AGdf["Activity"])
-    py.scatter(AGdf["SubConcen"], AGdf["Activity"])
-    py.title("4LXX, Grassland, Ambient, AG")
-    py.xlabel("Substrate concentration (micromolar)")
-    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
-
-    py.subplot(2, 4, 2)  # Making AP subplot
-    APdf = sampleDF[sampleDF["Enzyme"] == "AP"]
-    py.plot(APdf["SubConcen"], APdf["Activity"])
-    py.scatter(APdf["SubConcen"], APdf["Activity"])
-    py.title("4LXX, Grassland, Ambient, AP")
-    py.xlabel("Substrate concentration (micromolar)")
-    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
-
-    py.subplot(2, 4, 3)  # Making BG subplot
-    BGdf = sampleDF[sampleDF["Enzyme"] == "BG"]
-    py.plot("SubConcen", "Activity", data=BGdf)
-    py.scatter("SubConcen", "Activity", data=BGdf)
-    py.title("4LXX, Grassland, Ambient, BG")
-    py.xlabel("Substrate concentration (micromolar)")
-    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
-
-    py.subplot(2, 4, 4)  # Making BX subplot
-    BXdf = sampleDF[sampleDF["Enzyme"] == "BX"]
-    py.plot("SubConcen", "Activity", data=BXdf)
-    py.scatter("SubConcen", "Activity", data=BXdf)
-    py.title("4LXX, Grassland, Ambient, BX")
-    py.xlabel("Substrate concentration (micromolar)")
-    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
-
-    py.subplot(2, 4, 5)  # Making CBH subplot
-    CBHdf = sampleDF[sampleDF["Enzyme"] == "CBH"]
-    py.plot("SubConcen", "Activity", data=CBHdf)
-    py.scatter("SubConcen", "Activity", data=CBHdf)
-    py.title("4LXX, Grassland, Ambient, CBH")
-    py.xlabel("Substrate concentration (micromolar)")
-    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
-
-    py.subplot(2, 4, 6)  # Making LAP subplot
-    LAPdf = sampleDF[sampleDF["Enzyme"] == "LAP"]
-    py.plot("SubConcen", "Activity", data=LAPdf)
-    py.scatter("SubConcen", "Activity", data=LAPdf)
-    py.title("4LXX, Grassland, Ambient, LAP")
-    py.xlabel("Substrate concentration (micromolar)")
-    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
-
-    py.subplot(2, 4, 8)  # Making NAG subplot
-    NAGdf = sampleDF[sampleDF["Enzyme"] == "NAG"]
-    py.plot("SubConcen", "Activity", data=NAGdf)
-    py.scatter("SubConcen", "Activity", data=NAGdf)
-    py.title("4LXX, Grassland, Ambient, NAG")
-    py.xlabel("Substrate concentration (micromolar)")
-    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
-
+    for enzyme in enzymeName:
+        if enzyme == "NAG":
+            plotIndex = 8
+        else:
+            plotIndex = enzymeName.index(enzyme) + 1
+        py.subplot(2, 4, plotIndex)
+        substrateDF = sampleDF[sampleDF["Enzyme"] == enzyme]
+        py.plot(substrateDF["SubConcen"], substrateDF["Activity"])
+        py.scatter(substrateDF["SubConcen"], substrateDF["Activity"])
+        py.title("{0:}, Grassland, Ambient, {1:}".format(sample, enzyme))
+        py.xlabel("Substrate concentration (micromolar)")
+        py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
     # Saving figures for data quality control purposes
     figName = figTitle + ".png"
     figPath = T0graphsFolder/figName
     py.savefig(figPath)
-
 # %%
 # Now, I'm going to begin working on T0 clear.
+'''
 T0ClearPath = enzymeFolderPath/enzymeFiles[0]
 T0Clear = pd.read_csv(T0ClearPath, sep="\t", header=None, names=ogEnzymeCols)
+'''
