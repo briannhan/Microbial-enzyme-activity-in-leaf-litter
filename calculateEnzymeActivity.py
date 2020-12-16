@@ -376,9 +376,9 @@ T0Black["EmisCoef"] = ((T0Black["StanFluo"]*stanVol)
 T0Black["NetFluo"] = (((T0Black["Assay"] - T0Black["HomCtrl"])
                        / T0Black["QuenchCoef"]) - T0Black["SubCtrl"])
 
-# (5) Calculating enzyme activity. Initial units are nmol g^-1 h^-1. Final
-# units will be micromole g^-1 h^-1. This enzyme activity had been normalized
-# for the mass of litter used in the assay
+# (5) Calculating enzyme activity. Initial units are nmol L^-1 g^-1 h^-1. Final
+# units will be micromole L^-1 g^-1 h^-1. This enzyme activity had been
+# normalized for the mass of litter used in the assay
 incubaTime = 4  # Hours. Each plate was left to sit for 4 hours
 bufferVol = 150  # mL. Volume of buffer used in preparing a single homogenate
 homVol = 0.125  # mL. Volume of homogenate that is pipetted into each well
@@ -391,70 +391,81 @@ T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])
 # %%
 # Purpose: plotting hydrolytic enzyme activity of T0. I won't be doing any
 # nonlinear regression to fit the ECA model to the enzyme activity just yet
-'''for sample in samples:
-    sampleDF = T0Black[T0Black["ID"] == sample]'''
-# First, let's plot a single sample: 4LXX
-firstSample = "4LXX"
-firstDF = T0Black[T0Black["ID"] == firstSample]
-vegetation = firstDF.groupby("Vegetation")["Vegetation"].count().index.tolist()
-vegetation = vegetation[0]
-precip = firstDF.groupby("Precip")["Precip"].count().index.tolist()
-precip = precip[0]
-figTitle = "{0:}, {1:}, {2:}".format(firstSample, vegetation, precip)
-firstFigure = py.figure(num=figTitle, figsize=(25, 10))
+py.style.use("dark_background")
+T0graphsFolder = (workingDirectory/"Unprocessed activity graphs"
+                  / "T0"/"Hydrolytic enzymes")
+for sample in samples:
+    sampleDF = T0Black[T0Black["ID"] == sample]
+    vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
+    vegetation = vegetation.tolist()
+    vegetation = vegetation[0]
+    precip = sampleDF.groupby("Precip")["Precip"].count().index.tolist()
+    precip = precip[0]
+    figTitle = "{0:}, {1:}, {2:}, T0 Black".format(sample, vegetation, precip)
+    py.figure(num=figTitle, figsize=(25, 10))
 
-AG = firstFigure.add_subplot(2, 4, 1)  # Making AG subplot
-AGdf = firstDF[firstDF["Enzyme"] == "AG"]
-AG.plot(AGdf["SubConcen"], AGdf["Activity"])
-AG.scatter(AGdf["SubConcen"], AGdf["Activity"])
-py.title("4LXX, Grassland, Ambient, AG")
-AG.set_xlabel("Substrate concentration (micromolar)")
-AG.set_ylabel("Activity (micromole g-1 h-1)")
+    py.subplot(2, 4, 1)  # Making AG subplot
+    AGdf = sampleDF[sampleDF["Enzyme"] == "AG"]
+    py.plot(AGdf["SubConcen"], AGdf["Activity"])
+    py.scatter(AGdf["SubConcen"], AGdf["Activity"])
+    py.title("4LXX, Grassland, Ambient, AG")
+    py.xlabel("Substrate concentration (micromolar)")
+    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
 
-AP = firstFigure.add_subplot(2, 4, 2)  # Making AP subplot
-APdf = firstDF[firstDF["Enzyme"] == "AP"]
-AP.plot(APdf["SubConcen"], APdf["Activity"])
-AP.scatter(APdf["SubConcen"], APdf["Activity"])
-py.title("4LXX, Grassland, Ambient, AP")
-AP.set_xlabel("Substrate concentration (micromolar)")
-AP.set_ylabel("Activity (micromole g-1 h-1)")
+    py.subplot(2, 4, 2)  # Making AP subplot
+    APdf = sampleDF[sampleDF["Enzyme"] == "AP"]
+    py.plot(APdf["SubConcen"], APdf["Activity"])
+    py.scatter(APdf["SubConcen"], APdf["Activity"])
+    py.title("4LXX, Grassland, Ambient, AP")
+    py.xlabel("Substrate concentration (micromolar)")
+    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
 
-BG = firstFigure.add_subplot(2, 4, 3)  # Making BG subplot
-BGdf = firstDF[firstDF["Enzyme"] == "BG"]
-BG.plot("SubConcen", "Activity", data=BGdf)
-BG.scatter("SubConcen", "Activity", data=BGdf)
-py.title("4LXX, Grassland, Ambient, BG")
-BG.set_xlabel("Substrate concentration (micromolar)")
-BG.set_ylabel("Activity (micromole g-1 h-1)")
+    py.subplot(2, 4, 3)  # Making BG subplot
+    BGdf = sampleDF[sampleDF["Enzyme"] == "BG"]
+    py.plot("SubConcen", "Activity", data=BGdf)
+    py.scatter("SubConcen", "Activity", data=BGdf)
+    py.title("4LXX, Grassland, Ambient, BG")
+    py.xlabel("Substrate concentration (micromolar)")
+    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
 
-BX = firstFigure.add_subplot(2, 4, 4)  # Making BX subplot
-BXdf = firstDF[firstDF["Enzyme"] == "BX"]
-BX.plot("SubConcen", "Activity", data=BXdf)
-BX.scatter("SubConcen", "Activity", data=BXdf)
-py.title("4LXX, Grassland, Ambient, BX")
-BX.set_xlabel("Substrate concentration (micromolar)")
-BX.set_ylabel("Activity (micromole g-1 h-1)")
+    py.subplot(2, 4, 4)  # Making BX subplot
+    BXdf = sampleDF[sampleDF["Enzyme"] == "BX"]
+    py.plot("SubConcen", "Activity", data=BXdf)
+    py.scatter("SubConcen", "Activity", data=BXdf)
+    py.title("4LXX, Grassland, Ambient, BX")
+    py.xlabel("Substrate concentration (micromolar)")
+    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
 
-CBH = firstFigure.add_subplot(2, 4, 5)  # Making CBH subplot
-CBHdf = firstDF[firstDF["Enzyme"] == "CBH"]
-CBH.plot("SubConcen", "Activity", data=CBHdf)
-CBH.scatter("SubConcen", "Activity", data=CBHdf)
-py.title("4LXX, Grassland, Ambient, CBH")
-CBH.set_xlabel("Substrate concentration (micromolar)")
-CBH.set_ylabel("Activity (micromole g-1 h-1)")
+    py.subplot(2, 4, 5)  # Making CBH subplot
+    CBHdf = sampleDF[sampleDF["Enzyme"] == "CBH"]
+    py.plot("SubConcen", "Activity", data=CBHdf)
+    py.scatter("SubConcen", "Activity", data=CBHdf)
+    py.title("4LXX, Grassland, Ambient, CBH")
+    py.xlabel("Substrate concentration (micromolar)")
+    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
 
-LAP = firstFigure.add_subplot(2, 4, 6)  # Making LAP subplot
-LAPdf = firstDF[firstDF["Enzyme"] == "LAP"]
-LAP.plot("SubConcen", "Activity", data=LAPdf)
-LAP.scatter("SubConcen", "Activity", data=LAPdf)
-py.title("4LXX, Grassland, Ambient, LAP")
-LAP.set_xlabel("Substrate concentration (micromolar)")
-LAP.set_ylabel("Activity (micromole g-1 h-1)")
+    py.subplot(2, 4, 6)  # Making LAP subplot
+    LAPdf = sampleDF[sampleDF["Enzyme"] == "LAP"]
+    py.plot("SubConcen", "Activity", data=LAPdf)
+    py.scatter("SubConcen", "Activity", data=LAPdf)
+    py.title("4LXX, Grassland, Ambient, LAP")
+    py.xlabel("Substrate concentration (micromolar)")
+    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
 
-NAG = firstFigure.add_subplot(2, 4, 7)  # Making NAG subplot
-NAGdf = firstDF[firstDF["Enzyme"] == "NAG"]
-NAG.plot("SubConcen", "Activity", data=NAGdf)
-NAG.scatter("SubConcen", "Activity", data=NAGdf)
-py.title("4LXX, Grassland, Ambient, NAG")
-NAG.set_xlabel("Substrate concentration (micromolar)")
-NAG.set_ylabel("Activity (micromole g-1 h-1)")
+    py.subplot(2, 4, 8)  # Making NAG subplot
+    NAGdf = sampleDF[sampleDF["Enzyme"] == "NAG"]
+    py.plot("SubConcen", "Activity", data=NAGdf)
+    py.scatter("SubConcen", "Activity", data=NAGdf)
+    py.title("4LXX, Grassland, Ambient, NAG")
+    py.xlabel("Substrate concentration (micromolar)")
+    py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
+
+    # Saving figures for data quality control purposes
+    figName = figTitle + ".png"
+    figPath = T0graphsFolder/figName
+    py.savefig(figPath)
+
+# %%
+# Now, I'm going to begin working on T0 clear.
+T0ClearPath = enzymeFolderPath/enzymeFiles[0]
+T0Clear = pd.read_csv(T0ClearPath, sep="\t", header=None, names=ogEnzymeCols)
