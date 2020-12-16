@@ -143,7 +143,7 @@ for sample in samples:
 # no samples are mis-named or missing
 
 
-# (4) Adding additional data to the enzyme data frame
+# (3) Adding additional data to the enzyme data frame
 # Adding dry assay mass
 T0Bool = dryDFprocessed["Time"].isin(["T0 (November 30, 2017)"])
 dryDF_T0 = dryDFprocessed[T0Bool]
