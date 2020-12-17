@@ -401,7 +401,8 @@ def plotHydrolyticEnzymeActivity(enzymeData, dryWtSamples, plotPath, tpoint):
             substrateDF = sampleDF[sampleDF["Enzyme"] == enzyme]
             py.plot(substrateDF["SubConcen"], substrateDF["Activity"])
             py.scatter(substrateDF["SubConcen"], substrateDF["Activity"])
-            py.title("{0:}, Grassland, Ambient, {1:}".format(sample, enzyme))
+            py.title("{0:}, {1:}, {2:}, {3:}".format(sample, vegetation,
+                                                     precip, enzyme))
             py.xlabel("Substrate concentration (micromolar)")
             py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
         # Saving figures for data quality control purposes
