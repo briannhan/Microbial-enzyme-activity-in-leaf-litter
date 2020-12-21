@@ -13,7 +13,7 @@ py.style.use("dark_background")
 # Functions to wrangle both hydrolytic & oxidative enzyme data
 
 
-def processLongNamesAndWells(enzymeData):
+def longNamesAndWells(enzymeData):
     """Processes the long sample names & wells in an enzyme dataframe that
     occurred from reading in a dataframe of raw enzyme data. The long sample
     names are in a column, which are then split up into 2 columns. The Well
@@ -48,7 +48,6 @@ def processLongNamesAndWells(enzymeData):
         enzymeData.loc[index, "PlateRow"] = wellRow
         enzymeData.loc[index, "PlateCol"] = wellColumn
     enzymeData = enzymeData.drop(labels="Long sample name", axis=1)
-    enzymeData = enzymeData[enzymeData["PlateCol"] <= 10]
     return enzymeData
 
 
@@ -89,7 +88,7 @@ def missingExtraMisnamed(enzymeData, dryWtSamples):
     return plateCounts, samplesNotInPlateNames
 
 
-def addDryWtT035(enzymeData, processedDryWt, timepoint: str):
+def dryWtT035(enzymeData, processedDryWt, timepoint: str):
     """Adds dry weight data to the enzymeData dataframe. This function can only
     add the dry weight data to enzymeData dataframes from timepoints T0, T3,
     and T5. That is because the dry weight data for these 3 timepoints are from
@@ -123,7 +122,7 @@ def addDryWtT035(enzymeData, processedDryWt, timepoint: str):
     return enzymeData
 
 
-def addTreatments(enzymeData):
+def treatments(enzymeData):
     """Adds precipitation and vegetation treatments to the data frame of enzyme
     data based on sample names. Before this function can be called, the
     dataframe must have dry weight data.
@@ -153,6 +152,7 @@ def addTreatments(enzymeData):
             elif precip == "R":
                 enzymeData.loc[index, "Precip"] = "Reduced"
             enzymeData.loc[index, "Plot"] = plot
+    enzymeData = enzymeData.sort_values(by=["PlateCol", "Plot"])
     return enzymeData
 # %%
 # Following functions are reserved for black plates only. These functions are

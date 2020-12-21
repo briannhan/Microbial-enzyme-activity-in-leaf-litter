@@ -126,7 +126,6 @@ for index, row in T0Black.iterrows():
     T0Black.loc[index, "PlateRow"] = wellRow
     T0Black.loc[index, "PlateCol"] = wellColumn
 T0Black = T0Black.drop(labels="Long sample name", axis=1)
-T0Black = T0Black[T0Black["PlateCol"] <= 10]
 
 # (2) Checking to see if enzyme activity data contains all samples
 T0BlackCounts = T0Black.groupby("ID")["ID"].count()/96
@@ -395,6 +394,7 @@ T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])
 py.style.use("dark_background")
 T0graphsFolder = (workingDirectory/"Unprocessed activity graphs"
                   / "T0"/"Hydrolytic enzymes")
+"""
 for sample in samples:
     sampleDF = T0Black[T0Black["ID"] == sample]
     vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
@@ -420,10 +420,28 @@ for sample in samples:
     # Saving figures for data quality control purposes
     figName = figTitle + ".png"
     figPath = T0graphsFolder/figName
-    py.savefig(figPath)
+    # py.savefig(figPath)"""
+
+"""All the code above have been converted into methods and put into the
+enzymeWrangling.py module. I'm going to use some of these methods to process
+oxidative enzyme data for T0 Clear"""
 # %%
 # Now, I'm going to begin working on T0 clear.
-'''
-T0ClearPath = enzymeFolderPath/enzymeFiles[0]
-T0Clear = pd.read_csv(T0ClearPath, sep="\t", header=None, names=ogEnzymeCols)
-'''
+# In this section, I will use the methods from the enzymeWrangling.py module to
+# process the long sample name, check for missing, extra, or misnamed samples,
+# and add treatments and dry weight data in this section.
+
+T0ClrPath = enzymeFolderPath/enzymeFiles[1]
+T0Clr = pd.read_csv(T0ClrPath, sep="\t", header=None, names=ogEnzymeCols)
+T0Clr = ew.longNamesAndWells(T0Clr)
+T0ClrCounts, T0ClrMisnamedMissing = ew.missingExtraMisnamed(T0Clr, samples)
+T0Clr = ew.dryWtT035(T0Clr, dryDFprocessed, "T0 (November 30, 2017)")
+T0Clr = ew.treatments(T0Clr)
+# %%
+# I'm now going to begin wrangling control data in T0 Clear. I will convert
+# the code over to functions that wrangle clear plate control data in
+# enzymeWrangling.py
+bufferCols = T0Clr[T0Clr["PlateCol"] == 4]
+clrBuffColsToDrop = ["PlateCol", "Dry assay (g)", "Vegetation", "Precip"]
+bufferCols = bufferCols.drop(labels=clrBuffColsToDrop, axis=1)
+
