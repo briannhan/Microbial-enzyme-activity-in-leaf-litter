@@ -441,7 +441,82 @@ T0Clr = ew.treatments(T0Clr)
 # I'm now going to begin wrangling control data in T0 Clear. I will convert
 # the code over to functions that wrangle clear plate control data in
 # enzymeWrangling.py
-bufferCols = T0Clr[T0Clr["PlateCol"] == 4]
-clrBuffColsToDrop = ["PlateCol", "Dry assay (g)", "Vegetation", "Precip"]
-bufferCols = bufferCols.drop(labels=clrBuffColsToDrop, axis=1)
+# Purpose: wrangle T0 clear plate data to prepare it for activity calculations
+# Tasks:
+# (1) Assign enzyme names and replicate values, which will aid with the
+# following wrangling steps
+# (2) Making separate dataframes of buffer readings, substrate control,
+# homogenate control, and assay readings
+# (3) Combine buffer dataframe with substrate control, homogenate control, and
+# assay dataframes, and then adjusting these latter dataframes for the
+# absorbance inherent in the buffer in each dataframe by subtracting the
+# buffer absorbance from each dataframe
+# (4) Merging substrate and homogenate control dataframes back into the assay
+# dataframe
+# Note: this chunk cannot be run by itself. The chunk above it must run first
+# before this chunk can be run. Every time an edit is made to this chunk, the
+# chunk above must be run before this chunk can be run
 
+# (1) Assign enzyme names and replicate values, which will aid with the
+# following wrangling steps
+PPOcols = [1, 4, 5, 8, 9, 12]
+PERPPOcols = [2, 3, 6, 7, 10, 11]
+replicate1 = [5, 6, 7, 8]
+replicate2 = [9, 10, 11, 12]
+for index, row in T0Clr.iterrows():
+    if row["PlateCol"] in PPOcols:
+        T0Clr.loc[index, "Enzyme"] = "PPO"
+    elif row["PlateCol"] in PERPPOcols:
+        T0Clr.loc[index, "Enzyme"] = "Both"
+    if row["PlateCol"] in replicate1:
+        T0Clr.loc[index, "Replicate"] = 1
+    elif row["PlateCol"] in replicate2:
+        T0Clr.loc[index, "Replicate"] = 2
+
+# (2) Making separate dataframes of buffer readings, substrate control,
+# homogenate control, and assay readings
+bufferBool = T0Clr["PlateCol"].isin([3, 4])
+bufferAbs = T0Clr[bufferBool]
+subConAbsBool = T0Clr["PlateCol"].isin([1, 2])
+subConAbs = T0Clr[subConAbsBool]
+homCtrlAbsBool = T0Clr["PlateCol"].isin([7, 8, 11, 12])
+homCtrlAbs = T0Clr[homCtrlAbsBool]
+assayAbsBool = T0Clr["PlateCol"].isin([5, 6, 9, 10])
+T0Clr = T0Clr[assayAbsBool]
+ctrlColsToDrop = ["PlateCol", "Dry assay (g)", "Vegetation", "Precip"]
+
+bufferAbs = bufferAbs.drop(labels=ctrlColsToDrop, axis=1)
+subConAbs = subConAbs.drop(labels=ctrlColsToDrop, axis=1)
+homCtrlAbs = homCtrlAbs.drop(labels=ctrlColsToDrop, axis=1)
+
+# (3) Combine buffer dataframe with substrate control, homogenate control, and
+# assay dataframes, and then adjusting these latter dataframes for the
+# absorbance inherent in the buffer in each dataframe by subtracting the
+# buffer absorbance from each dataframe
+bufferAbs = bufferAbs.rename(mapper={"Assay": "Buffer"}, axis=1)
+bufferAbsColsToDrop = ["Well", "Assay date", "Replicate"]
+bufferAbs = bufferAbs.drop(labels=bufferAbsColsToDrop, axis=1)
+bufferAbsMerge = ["ID", "Plot", "PlateRow", "Enzyme"]
+subConAbs = pd.merge(left=subConAbs, right=bufferAbs,
+                     how="inner", on=bufferAbsMerge)
+homCtrlAbs = pd.merge(left=homCtrlAbs, right=bufferAbs,
+                      how="inner", on=bufferAbsMerge)
+T0Clr = pd.merge(left=T0Clr, right=bufferAbs, how="inner", on=bufferAbsMerge)
+subConAbs["Assay"] = subConAbs["Assay"] - subConAbs["Buffer"]
+homCtrlAbs["Assay"] = homCtrlAbs["Assay"] - homCtrlAbs["Buffer"]
+T0Clr["Assay"] = T0Clr["Assay"] - T0Clr["Buffer"]
+
+# (4) Merging substrate and homogenate control dataframes back into the assay
+# dataframe
+subConAbsColsToDrop = ["Well", "Assay date", "Replicate", "Buffer"]
+subConAbs = subConAbs.rename(columns={"Assay": "SubCtrl"})
+subConAbs = subConAbs.drop(labels=subConAbsColsToDrop, axis=1)
+homCtrlAbsColsToDrop = ["Well", "Assay date", "Buffer"]
+homCtrlAbs = homCtrlAbs.rename(columns={"Assay": "HomCtrl"})
+homCtrlAbs = homCtrlAbs.drop(labels=homCtrlAbsColsToDrop, axis=1)
+subConAbsMerge = bufferAbsMerge
+T0Clr = pd.merge(left=T0Clr, right=subConAbs, how="inner", on=subConAbsMerge)
+homCtrlAbsMerge = ["ID", "PlateRow", "Plot", "Enzyme", "Replicate"]
+T0Clr = pd.merge(left=T0Clr, right=homCtrlAbs, how="inner", on=homCtrlAbsMerge)
+T0Clr = T0Clr.drop(labels="Buffer", axis=1)
+T0Clr = T0Clr.sort_values(by=["PlateCol", "Plot"])
