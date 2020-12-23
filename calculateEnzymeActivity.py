@@ -392,8 +392,8 @@ T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])
 # Purpose: plotting hydrolytic enzyme activity of T0. I won't be doing any
 # nonlinear regression to fit the ECA model to the enzyme activity just yet
 py.style.use("dark_background")
-T0graphsFolder = (workingDirectory/"Unprocessed activity graphs"
-                  / "T0"/"Hydrolytic enzymes")
+T0graphsFolder = (workingDirectory/"Unprocessed activity graphs"/"T0")
+T0HydrolyticGraphs = (T0graphsFolder/"Hydrolytic enzymes")
 """
 for sample in samples:
     sampleDF = T0Black[T0Black["ID"] == sample]
@@ -419,7 +419,7 @@ for sample in samples:
         py.ylabel("Activity (micromole L^-1 g^-1 h^-1)")
     # Saving figures for data quality control purposes
     figName = figTitle + ".png"
-    figPath = T0graphsFolder/figName
+    figPath = T0HydrolyticGraphs/figName
     # py.savefig(figPath)"""
 
 """All the code above have been converted into methods and put into the
@@ -578,6 +578,7 @@ pyroConcenDF = pd.DataFrame({"PlateRow": list("ABCDEFGH"),
 T0Clr = pd.merge(left=T0Clr, right=pyroConcenDF, how="inner", on="PlateRow")
 
 # (2) Graph oxidative enzyme activity
+T0OxiGraphs = T0graphsFolder/"Oxidative enzymes"
 for sample in samples:
     sampleDF = T0Clr[T0Clr["ID"] == sample]
     vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
@@ -607,3 +608,6 @@ for sample in samples:
         py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
         py.plot("SubConcen", "PER activity", data=replicateDF)
         py.scatter("SubConcen", "PER activity", data=replicateDF)
+    figureName = figureTitle + ".png"
+    figPath = T0OxiGraphs/figureName
+    py.savefig(figPath)
