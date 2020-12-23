@@ -311,11 +311,11 @@ activities"""
 # concentrations to merge back into plateInfo.
 AMCamount = 62.5*125/1000
 """Amount of MUB standard in standard and quench control wells.
-62.5 micromolar x 125 microliter / 1000 (conversion factor)
+62.5 micromolar (concentration) x 125 microliter pipetted/ 1000 (conversion)
 units: nanomoles"""
 MUBamount = 25*125/1000
 """Amount of AMC standard in standard and quench control wells.
-25 micromolar x 125 microliter / 1000 (conversion factor)
+25 micromolar (concentration) x 125 microliter pipetted/ 1000 (conversion)
 units: nanomoles"""
 plateCols = np.linspace(start=1, stop=7, num=7).tolist()
 enzymeName = ["AG", "AP", "BG", "BX", "CBH", "LAP", "NAG"]
@@ -520,3 +520,54 @@ homCtrlAbsMerge = ["ID", "PlateRow", "Plot", "Enzyme", "Replicate"]
 T0Clr = pd.merge(left=T0Clr, right=homCtrlAbs, how="inner", on=homCtrlAbsMerge)
 T0Clr = T0Clr.drop(labels="Buffer", axis=1)
 T0Clr = T0Clr.sort_values(by=["PlateCol", "Plot"])
+# %%
+# Purpose: Calculate oxidative enzyme activities
+# Tasks:
+# (1) Calculate activities of polyphenol oxidase (PPO) and combined activities
+# of peroxidase (PER) and PPO
+# (2) Wrangle calculated enzyme activities to extract PER from combined PER &
+# PPO activities
+# (3) Extract PER from combined PER & PPO activities
+
+# (1) Calculate activities of polyphenol oxidase (PPO) and combined activities
+# of peroxidase (PER) and PPO
+extincCoef = 4.2  # micromole^-1
+T0Clr["NetAbs"] = T0Clr["Assay"] - T0Clr["HomCtrl"] - T0Clr["SubCtrl"]
+incubaTimeClear = 24  # hours
+T0Clr["Activity"] = ((T0Clr["NetAbs"]*bufferVol)
+                     / (extincCoef*homVol*incubaTimeClear
+                        * T0Clr["Dry assay (g)"]))
+# Units of enzyme activity: micromole g^-1 hr^-1
+
+# (2) Wrangle calculated enzyme activities to extract PER from combined PER &
+# PPO activities
+allOxi = T0Clr[T0Clr["Enzyme"] == "Both"]
+T0Clr = T0Clr[T0Clr["Enzyme"] == "PPO"]
+allOxi = allOxi.rename(columns={"Activity": "All oxidases"})
+T0Clr = T0Clr.rename(columns={"Activity": "PPO activity"})
+allOxiLabelsToDrop = ["Well", "Assay", "Assay date", "PlateCol",
+                      "Dry assay (g)", "Vegetation", "Precip", "Enzyme",
+                      "SubCtrl", "HomCtrl", "NetAbs"]
+allOxi = allOxi.drop(columns=allOxiLabelsToDrop)
+T0Clr = T0Clr.drop(columns="Enzyme")
+allOxiMerge = ["ID", "PlateRow", "Plot", "Plot", "Replicate"]
+T0Clr = pd.merge(left=T0Clr, right=allOxi, how="inner", on=allOxiMerge)
+
+# (3) Extract PER from combined PER & PPO activities
+T0Clr = T0Clr.rename(columns={"All oxidases": "PER activity"})
+T0Clr["PER activity"] = T0Clr["PER activity"] - T0Clr["PPO activity"]
+T0Clr = T0Clr.sort_values(by=["PlateCol", "Plot"])
+# %%
+# Purpose: Graph oxidative enzyme activity
+# Tasks:
+# (1) Make a dataframe of substrate concentrations and attach to T0Clr
+# (2) Graph oxidative enzyme activity
+
+# (3) Make a dataframe of substrate concentrations and attach to T0Clr
+pyroHighestConcen = (1e6)/(7.9*126.11*2)
+'''Ratio of highest concentration is 1 mg pyrogallol/7.9 mL water. Molar mass
+of pyrogallol is 126.11 g/mol. I multiplied by 1,000,000 to give the final
+value units of micromole L^-1 g^-1. I divided by 2 to take into account the
+fact that half the volume of each assay well consists of the pipetted
+substrate (pyrogallol) and the other half consists of the filtered
+homogenate.'''
