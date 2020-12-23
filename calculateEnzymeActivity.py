@@ -563,11 +563,47 @@ T0Clr = T0Clr.sort_values(by=["PlateCol", "Plot"])
 # (1) Make a dataframe of substrate concentrations and attach to T0Clr
 # (2) Graph oxidative enzyme activity
 
-# (3) Make a dataframe of substrate concentrations and attach to T0Clr
-pyroHighestConcen = (1e6)/(7.9*126.11*2)
-'''Ratio of highest concentration is 1 mg pyrogallol/7.9 mL water. Molar mass
-of pyrogallol is 126.11 g/mol. I multiplied by 1,000,000 to give the final
+
+# (1) Make a dataframe of substrate concentrations and attach to T0Clr
+pyroHighest = (1e6)/(7.9*126.11*2)
+'''Highest concentration of pyrogallol is 1 mg pyrogallol/7.9 mL water. Molar
+mass of pyrogallol is 126.11 g/mol. I multiplied by 1,000,000 to give the final
 value units of micromole L^-1 g^-1. I divided by 2 to take into account the
 fact that half the volume of each assay well consists of the pipetted
 substrate (pyrogallol) and the other half consists of the filtered
 homogenate.'''
+pyroConcen = (pyroHighest*subProps).tolist()
+pyroConcenDF = pd.DataFrame({"PlateRow": list("ABCDEFGH"),
+                             "SubConcen": pyroConcen})
+T0Clr = pd.merge(left=T0Clr, right=pyroConcenDF, how="inner", on="PlateRow")
+
+# (2) Graph oxidative enzyme activity
+for sample in samples:
+    sampleDF = T0Clr[T0Clr["ID"] == sample]
+    vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
+    vegetation = vegetation.tolist()
+    vegetation = vegetation[0]
+    precip = sampleDF.groupby("Precip")["Precip"].count().index.tolist()
+    precip = precip[0]
+    figureTitle = "{0:}, {1:}, {2:}".format(sample, vegetation, precip)
+    py.figure(num=figureTitle, figsize=(17, 13))
+    for i in range(2):
+        # Making subplot of PPO for 1 replicate
+        replicate = i + 1
+        py.subplot(2, 2, (i*2) + 1)
+        replicateDF = sampleDF[sampleDF["Replicate"] == replicate]
+        py.title("{0}, {1}, {2}, PPO, replicate {3}".format(sample, vegetation,
+                                                            precip, replicate))
+        py.xlabel("Substrate concentration (micromole L^-1)")
+        py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+        py.plot("SubConcen", "PPO activity", data=replicateDF)
+        py.scatter("SubConcen", "PPO activity", data=replicateDF)
+
+        # Making subplot of PER for 1 replicate
+        py.subplot(2, 2, (i*2) + 2)
+        py.title("{0}, {1}, {2}, PER, replicate {3}".format(sample, vegetation,
+                                                            precip, replicate))
+        py.xlabel("Substrate concentration (micromole L^-1)")
+        py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+        py.plot("SubConcen", "PER activity", data=replicateDF)
+        py.scatter("SubConcen", "PER activity", data=replicateDF)
