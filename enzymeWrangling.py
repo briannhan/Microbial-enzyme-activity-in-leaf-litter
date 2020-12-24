@@ -295,7 +295,7 @@ def homCtrlWrangling(enzymeData, homCtrlDF):
     return enzymeData
 
 
-def hydrolyticEnzymeActivity(enzymeData, plateInfo):
+def hydrolaseActivity(enzymeData, plateInfo):
     """Calculates hydrolytic enzyme activity using formulas from German et al
     2011.
 
@@ -321,6 +321,7 @@ def hydrolyticEnzymeActivity(enzymeData, plateInfo):
     """
     # Calculating Quench Coefficients. Each quench coefficient is specific
     # to a particular row of a sample plate. Quench Coefficients are unitless
+    enzymeData = pd.merge(enzymeData, plateInfo, on=["PlateCol", "PlateRow"])
     enzymeData["QuenchCoef"] = ((enzymeData["QuenchCtrl"]
                                  - enzymeData["HomCtrl"])
                                 / enzymeData["StanFluo"])
@@ -357,7 +358,7 @@ def hydrolyticEnzymeActivity(enzymeData, plateInfo):
     return enzymeData
 
 
-def plotHydrolyticEnzymeActivity(enzymeData, dryWtSamples, plotPath, tpoint):
+def plotHydrolaseActivity(enzymeData, dryWtSamples, plotPath, tpoint):
     """Plots the hydrolytic enzyme activity of a dataframe that represents
     a timepoint and contains calculated hydrolytic enzyme activity in that
     timepoint
@@ -408,5 +409,299 @@ def plotHydrolyticEnzymeActivity(enzymeData, dryWtSamples, plotPath, tpoint):
         # Saving figures for data quality control purposes
         figName = figTitle + ".png"
         figPath = plotPath/figName
+        py.savefig(figPath)
+    return
+# %%
+# This section wrangles and plots enzyme activity of clear plate data
+
+
+def enzymesNreplicates(enzymeData):
+    """Assigns enzyme names and replicates to the enzymeData dataframe. This
+    function must be ran first before the dataframe can be split into
+    dataframes of buffer readings, substrate and homogenate controls, and
+    assay readings.
+
+    Parameters
+    ----------
+    enzymeData : Pandas dataframe
+        A dataframe of oxidative enzyme data.
+
+    Returns
+    -------
+    enzymeData : Pandas dataframe
+        The dataframe with the enzyme names and replicate numbers added.
+    """
+    PPOcols = [1, 4, 5, 8, 9, 12]
+    PERPPOcols = [2, 3, 6, 7, 10, 11]
+    replicate1 = [5, 6, 7, 8]
+    replicate2 = [9, 10, 11, 12]
+    for index, row in enzymeData.iterrows():
+        if row["PlateCol"] in PPOcols:
+            enzymeData.loc[index, "Enzyme"] = "PPO"
+        elif row["PlateCol"] in PERPPOcols:
+            enzymeData.loc[index, "Enzyme"] = "Both"
+        if row["PlateCol"] in replicate1:
+            enzymeData.loc[index, "Replicate"] = 1
+        elif row["PlateCol"] in replicate2:
+            enzymeData.loc[index, "Replicate"] = 2
+    return enzymeData
+
+
+def separateControls(enzymeData):
+    """Separates the enzymeData dataframe into separate dataframes comprising
+    of absorbance readings of the buffer, the substrate and homogenate
+    controls, and the assay readings.
+
+    Before this function can be run, the enzymeData dataframe must have 2
+    columns that dictate the enzyme and replicate. After this function is run,
+    the control readings and assay readings can be blanked.
+
+    Parameters
+    ----------
+    enzymeData : Pandas dataframe
+        A dataframe of oxidative enzyme data.
+
+    Returns
+    -------
+    bufferAbs : Pandas dataframe
+        A dataframe of the absorbance of the buffer wells (which contains
+        buffer and water)
+    subConAbs : Pandas dataframe
+        A dataframe of the absorbance of the substrate control wells (which
+        contains buffer and substrate)
+    homCtrlAbs : Pandas dataframe
+        A dataframe of the absorbance of the homogenate control wells (which
+        contains the filtered homogenate and water)
+    enzymeData : Pandas dataframe
+        The original input dataframe with the buffer and substrate and
+        homogenate control readings removed
+    """
+    bufferBool = enzymeData["PlateCol"].isin([3, 4])
+    bufferAbs = enzymeData[bufferBool]
+    subConAbsBool = enzymeData["PlateCol"].isin([1, 2])
+    subConAbs = enzymeData[subConAbsBool]
+    homCtrlAbsBool = enzymeData["PlateCol"].isin([7, 8, 11, 12])
+    homCtrlAbs = enzymeData[homCtrlAbsBool]
+    assayAbsBool = enzymeData["PlateCol"].isin([5, 6, 9, 10])
+    enzymeData = enzymeData[assayAbsBool]
+
+    ctrlColsToDrop = ["PlateCol", "Dry assay (g)", "Vegetation", "Precip"]
+    bufferAbs = bufferAbs.drop(labels=ctrlColsToDrop, axis=1)
+    subConAbs = subConAbs.drop(labels=ctrlColsToDrop, axis=1)
+    homCtrlAbs = homCtrlAbs.drop(labels=ctrlColsToDrop, axis=1)
+    return bufferAbs, subConAbs, homCtrlAbs, enzymeData
+
+
+def blank(bufferAbs, subConAbs, homCtrlAbs, enzymeData):
+    """Removes the absorbance of the buffer from the substrate and homogenate
+    controls and the assay wells. I'm calling this process 'blanking'.
+
+    Before this function can be run, the control and buffer readings must be
+    separated and removed from enzymeData. After this function is run, the
+    control readings can be merged back into enzymeData.
+
+    Parameters
+    ----------
+    bufferAbs : Pandas dataframe
+        A dataframe of the absorbance of the buffer wells (which contains
+        buffer and water)
+    subConAbs : Pandas dataframe
+        A dataframe of the absorbance of the substrate control wells (which
+        contains buffer and substrate)
+    homCtrlAbs : Pandas dataframe
+        A dataframe of the absorbance of the homogenate control wells (which
+        contains the filtered homogenate and water)
+    enzymeData : Pandas dataframe
+        A dataframe with only assay readings
+
+    Returns
+    -------
+    subConAbs : Pandas dataframe
+        A dataframe of the absorbance of the substrate control wells (which
+        contains buffer and substrate) which the absorbance of the buffer
+        removed
+    homCtrlAbs : Pandas dataframe
+        A dataframe of the absorbance of the homogenate control wells (which
+        contains the filtered homogenate and water) with the absorbance of the
+        buffer removed
+    enzymeData : Pandas dataframe
+        A dataframe with only assay readings with the absorbance of the buffer
+        removed
+    """
+    bufferAbs = bufferAbs.rename(mapper={"Assay": "Buffer"}, axis=1)
+    bufferAbsColsToDrop = ["Well", "Assay date", "Replicate"]
+    bufferAbs = bufferAbs.drop(labels=bufferAbsColsToDrop, axis=1)
+    bufferAbsMerge = ["ID", "Plot", "PlateRow", "Enzyme"]
+    subConAbs = pd.merge(left=subConAbs, right=bufferAbs,
+                         how="inner", on=bufferAbsMerge)
+    homCtrlAbs = pd.merge(left=homCtrlAbs, right=bufferAbs,
+                          how="inner", on=bufferAbsMerge)
+    enzymeData = pd.merge(left=enzymeData, right=bufferAbs, how="inner",
+                          on=bufferAbsMerge)
+    subConAbs["Assay"] = subConAbs["Assay"] - subConAbs["Buffer"]
+    homCtrlAbs["Assay"] = homCtrlAbs["Assay"] - homCtrlAbs["Buffer"]
+    enzymeData["Assay"] = enzymeData["Assay"] - enzymeData["Buffer"]
+    return subConAbs, homCtrlAbs, enzymeData
+
+
+def mergeCtrls(subConAbs, homCtrlAbs, enzymeData):
+    """Merge control dataframes into the enzymeData dataframe to produce a
+    single dataframe with assay readings and control readings side by side to
+    facilitate calculations.
+
+    Before this function can be run, the input dataframes must have been
+    blanked. After this function is run, oxidase activities can be calculated.
+
+    Parameters
+    ----------
+    subConAbs : Pandas dataframe
+        A dataframe of blanked out substrate control readings.
+    homCtrlAbs : Pandas dataframe
+        A dataframe of blanked out homogenate control readings.
+    enzymeData : Pandas dataframe
+        A dataframe of blanked out assay readings.
+
+    Returns
+    -------
+    enzymeData : Pandas dataframe
+        The original enzymeData dataframe with substrate and homogenate control
+        readings added, so that this dataframe has assay readings and readings
+        from substrate and homogenate controls.
+    """
+    subConAbsColsToDrop = ["Well", "Assay date", "Replicate", "Buffer"]
+    subConAbs = subConAbs.rename(columns={"Assay": "SubCtrl"})
+    subConAbs = subConAbs.drop(labels=subConAbsColsToDrop, axis=1)
+    homCtrlAbsColsToDrop = ["Well", "Assay date", "Buffer"]
+    homCtrlAbs = homCtrlAbs.rename(columns={"Assay": "HomCtrl"})
+    homCtrlAbs = homCtrlAbs.drop(labels=homCtrlAbsColsToDrop, axis=1)
+    subConAbsMerge = ["ID", "Plot", "PlateRow", "Enzyme"]
+    enzymeData = pd.merge(left=enzymeData, right=subConAbs, how="inner",
+                          on=subConAbsMerge)
+    homCtrlAbsMerge = ["ID", "PlateRow", "Plot", "Enzyme", "Replicate"]
+    enzymeData = pd.merge(left=enzymeData, right=homCtrlAbs, how="inner",
+                          on=homCtrlAbsMerge)
+    enzymeData = enzymeData.drop(labels="Buffer", axis=1)
+    enzymeData = enzymeData.sort_values(by=["PlateCol", "Plot"])
+    return enzymeData
+
+
+def oxidaseActivity(enzymeData):
+    """Calculates the oxidative enzyme activity of polyphenol oxidase (PPO)
+    and peroxidase (PER)
+
+    Before this function can be run, the input dataframe must contain blanked
+    out substrate and homogenate control readings. After this function is run,
+    then the oxidative enzyme activities can be plotted.
+
+    Parameters
+    ----------
+    enzymeData : Pandas dataframe
+        Dataframe of oxidative enzyme data, containing blanked out assay
+        readings and blanked out control readings.
+
+    Returns
+    -------
+    enzymeData : Pandas dataframe
+        Dataframe of oxidative enzyme data that now contain PPO and PER
+        activities
+    """
+    extincCoef = 4.2  # micromole^-1
+    bufferVol = 150  # mL. Volume of buffer to prepare a single homogenate
+    homVol = 0.125  # mL. Volume of homogenate that is pipetted into each well
+    enzymeData["NetAbs"] = (enzymeData["Assay"] - enzymeData["HomCtrl"]
+                            - enzymeData["SubCtrl"])
+    incubaTimeClear = 24  # hours
+    enzymeData["Activity"] = ((enzymeData["NetAbs"]*bufferVol) /
+                              (extincCoef*homVol*incubaTimeClear
+                               * enzymeData["Dry assay (g)"]))
+    # Units of enzyme activity: micromole g^-1 hr^-1
+
+    # Wrangle calculated enzyme activities to extract PER from combined PER &
+    # PPO activities
+    allOxi = enzymeData[enzymeData["Enzyme"] == "Both"]
+    enzymeData = enzymeData[enzymeData["Enzyme"] == "PPO"]
+    allOxi = allOxi.rename(columns={"Activity": "All oxidases"})
+    enzymeData = enzymeData.rename(columns={"Activity": "PPO activity"})
+    allOxiLabelsToDrop = ["Well", "Assay", "Assay date", "PlateCol",
+                          "Dry assay (g)", "Vegetation", "Precip", "Enzyme",
+                          "SubCtrl", "HomCtrl", "NetAbs"]
+    allOxi = allOxi.drop(columns=allOxiLabelsToDrop)
+    enzymeData = enzymeData.drop(columns="Enzyme")
+    allOxiMerge = ["ID", "PlateRow", "Plot", "Plot", "Replicate"]
+    enzymeData = pd.merge(left=enzymeData, right=allOxi, how="inner",
+                          on=allOxiMerge)
+
+    # Extract PER from combined PER & PPO activities
+    enzymeData = enzymeData.rename(columns={"All oxidases": "PER activity"})
+    enzymeData["PER activity"] = (enzymeData["PER activity"]
+                                  - enzymeData["PPO activity"])
+    enzymeData = enzymeData.sort_values(by=["PlateCol", "Plot"])
+    return enzymeData
+
+
+def plotOxidaseActivity(enzymeData, pyroConcenDF, dryWtSamples, plotPath):
+    """Plots oxidase activities.
+
+    Before this function can be run, the enzymeData dataframe must contain
+    calculated enzyme activities.
+
+    Parameters
+    ----------
+    enzymeData : Pandas dataframe
+        Dataframe of calculated enzyme activity
+    pyroConcenDF : Pandas dataframe
+        Dataframe of pyrogallol concentrations. Pyrogallol is the substrate
+        for oxidative enzymes in this project.
+    dryWtSamples : List of strings
+        List of strings, with each string being the name of a sample from a
+        timepoint. I use the sample names generated from the dry weight
+        spreadsheet for T0, T3, and T5 because I know that these names are not
+        missing, misnamed, or extras
+    plotPath : Path object
+        The path in which the plots of oxidase activity will be saved
+
+    Returns
+    -------
+    None.
+    """
+    enzymeData = pd.merge(left=enzymeData, right=pyroConcenDF, how="inner",
+                          on="PlateRow")
+
+    # (2) Graph oxidative enzyme activity
+    for sample in dryWtSamples:
+        sampleDF = enzymeData[enzymeData["ID"] == sample]
+        vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
+        vegetation = vegetation.tolist()
+        vegetation = vegetation[0]
+        precip = sampleDF.groupby("Precip")["Precip"].count().index.tolist()
+        precip = precip[0]
+        figureTitle = "{0:}, {1:}, {2:}".format(sample, vegetation, precip)
+        py.figure(num=figureTitle, figsize=(17, 13))
+        for i in range(2):
+            # Making subplot of PPO for 1 replicate
+            replicate = i + 1
+            py.subplot(2, 2, (i*2) + 1)
+            replicateDF = sampleDF[sampleDF["Replicate"] == replicate]
+            py.title("{0}, {1}, {2}, PPO, replicate {3}".format(sample,
+                                                                vegetation,
+                                                                precip,
+                                                                replicate))
+            py.xlabel("Substrate concentration (micromole L^-1)")
+            py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+            py.plot("SubConcen", "PPO activity", data=replicateDF)
+            py.scatter("SubConcen", "PPO activity", data=replicateDF)
+
+            # Making subplot of PER for 1 replicate
+            py.subplot(2, 2, (i*2) + 2)
+            py.title("{0}, {1}, {2}, PER, replicate {3}".format(sample,
+                                                                vegetation,
+                                                                precip,
+                                                                replicate))
+            py.xlabel("Substrate concentration (micromole L^-1)")
+            py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+            py.plot("SubConcen", "PER activity", data=replicateDF)
+            py.scatter("SubConcen", "PER activity", data=replicateDF)
+        figureName = figureTitle + ".png"
+        figPath = plotPath/figureName
         py.savefig(figPath)
     return
