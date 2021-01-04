@@ -392,7 +392,8 @@ T0Black = T0Black.sort_values(by=["Plot", "PlateCol"])
 # Purpose: plotting hydrolytic enzyme activity of T0. I won't be doing any
 # nonlinear regression to fit the ECA model to the enzyme activity just yet
 py.style.use("dark_background")
-T0graphsFolder = (workingDirectory/"Unprocessed activity graphs"/"T0")
+unprocessPaths = workingDirectory/"Unprocessed activity graphs"
+T0graphsFolder = unprocessPaths/"T0"
 T0HydrolyticGraphs = (T0graphsFolder/"Hydrolytic enzymes")
 """
 for sample in samples:
@@ -613,5 +614,20 @@ for sample in samples:
     figPath = T0OxiGraphs/figureName
     py.savefig(figPath)
 """
+# Let's start calculating enzyme activities of new timepoints
 # %%
-# Should I clean T0 black plate data or start analyzing new timepoints?
+# Processing T3 black plate data
+T3hydroPath = enzymeFolderPath/enzymeFiles[2]
+T3hydro = pd.read_csv(T3hydroPath, sep="\t", header=None,
+                      names=ogEnzymeCols)
+T3hydro = ew.longNamesAndWells(T3hydro)
+T3hydroCounts, T3ExtraMisnamed = ew.missingExtraMisnamed(T3hydro, samples)
+T3hydro = ew.dryWtT035(T3hydro, dryDFprocessed, "T3 (April 11, 2018)")
+T3hydro = ew.treatments(T3hydro)
+T3hydro = ew.subCtrlWrangling(T3hydro)
+T3hydro, T3hydroHomCtrlDF = ew.stanQuench(T3hydro)
+T3hydro = ew.homCtrlWrangling(T3hydro, T3hydroHomCtrlDF)
+T3hydro = ew.hydrolaseActivity(T3hydro)
+T3graphsFolder = unprocessPaths/"T3"
+T3hydroGraphsPath = T3graphsFolder/"Hydrolytic enzymes"
+ew.plotHydrolaseActivity(T3hydro, samples, T3hydroGraphsPath, "T3 Black")

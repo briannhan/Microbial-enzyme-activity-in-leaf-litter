@@ -8,7 +8,71 @@ data and to help plot them.
 """
 import pandas as pd
 import matplotlib.pyplot as py
+import numpy as np
 py.style.use("dark_background")
+# %%
+# Making dataframes of substrate concentrations, enzyme names, amounts of
+# standards, and other plate information
+
+
+# Plate information for black plates
+AMCamount = 62.5*125/1000
+"""Amount of MUB standard in standard and quench control wells.
+62.5 micromolar (concentration) x 125 microliter pipetted/ 1000 (conversion)
+units: nanomoles"""
+MUBamount = 25*125/1000
+"""Amount of AMC standard in standard and quench control wells.
+25 micromolar (concentration) x 125 microliter pipetted/ 1000 (conversion)
+units: nanomoles"""
+plateCols = np.linspace(start=1, stop=7, num=7).tolist()
+enzymeName = ["AG", "AP", "BG", "BX", "CBH", "LAP", "NAG"]
+standardAmount = [MUBamount, MUBamount, MUBamount, MUBamount, MUBamount,
+                  AMCamount, MUBamount]
+hydroInfoDic = {"PlateCol": plateCols, "Enzyme": enzymeName,
+                "StanAmt": standardAmount}
+hydroInfo = pd.DataFrame(hydroInfoDic)
+# Making dataframe of hydrolytic enzyme concentrations to merge back into
+# hydroInfo.
+AGnames = 8*["AG"]
+APnames = 8*["AP"]
+BGnames = 8*["BG"]
+BXnames = 8*["BX"]
+CBHnames = 8*["CBH"]
+LAPnames = 8*["LAP"]
+NAGnames = 8*["NAG"]
+enzymesLists = [AGnames, APnames, BGnames, BXnames,
+                CBHnames, LAPnames, NAGnames]
+longEnzymesNames = [name for outerList in enzymesLists for name in outerList]
+subProps = np.geomspace(1, 1/128, num=8)
+# Units of substrate concentrations are in micromolar
+AGconcen = (500*subProps).tolist()
+APconcen = (2000*subProps).tolist()
+BGconcen = (500*subProps).tolist()
+BXconcen = (500*subProps).tolist()
+CBHconcen = (250*subProps).tolist()
+LAPconcen = (500*subProps).tolist()
+NAGconcen = (1000*subProps).tolist()
+subConcenLists = [AGconcen, APconcen, BGconcen, BXconcen, CBHconcen,
+                  LAPconcen, NAGconcen]
+subConcen = [concen for outer in subConcenLists for concen in outer]
+plateRow = 7*list("ABCDEFGH")
+blackSubConcenDict = {"PlateRow": plateRow, "Enzyme": longEnzymesNames,
+                      "SubConcen": subConcen}
+blackSubConcenDF = pd.DataFrame(blackSubConcenDict)
+hydroInfo = pd.merge(hydroInfo, blackSubConcenDF, how="inner", on="Enzyme")
+
+
+# Plate information for clear plates
+pyroHighest = (1e6)/(7.9*126.11*2)
+'''Highest concentration of pyrogallol is 1 mg pyrogallol/7.9 mL water. Molar
+mass of pyrogallol is 126.11 g/mol. I multiplied by 1,000,000 to give the final
+value units of micromole L^-1 g^-1. I divided by 2 to take into account the
+fact that half the volume of each assay well consists of the pipetted
+substrate (pyrogallol) and the other half consists of the filtered
+homogenate.'''
+pyroConcen = (pyroHighest*subProps).tolist()
+pyroConcenDF = pd.DataFrame({"PlateRow": list("ABCDEFGH"),
+                             "SubConcen": pyroConcen})
 # %%
 # Functions to wrangle both hydrolytic & oxidative enzyme data
 
@@ -295,7 +359,7 @@ def homCtrlWrangling(enzymeData, homCtrlDF):
     return enzymeData
 
 
-def hydrolaseActivity(enzymeData, plateInfo):
+def hydrolaseActivity(enzymeData):
     """Calculates hydrolytic enzyme activity using formulas from German et al
     2011.
 
@@ -308,20 +372,16 @@ def hydrolaseActivity(enzymeData, plateInfo):
     ----------
     enzymeData : Pandas dataframe
         Pandas dataframe with all the control readings wrangled.
-    plateInfo : Pandas dataframe
-        Pandas dataframe that contains miscellaneous plate information: amount
-        of standards in each well in columns 8 & 9, substrate concentrations,
-        and enzyme names.
 
     Returns
     -------
     enzymeData : Pandas dataframe
         Pandas dataframe with calculated enzyme activities as well as added
-        information from plateInfo.
+        information from hydroInfo.
     """
     # Calculating Quench Coefficients. Each quench coefficient is specific
     # to a particular row of a sample plate. Quench Coefficients are unitless
-    enzymeData = pd.merge(enzymeData, plateInfo, on=["PlateCol", "PlateRow"])
+    enzymeData = pd.merge(enzymeData, hydroInfo, on=["PlateCol", "PlateRow"])
     enzymeData["QuenchCoef"] = ((enzymeData["QuenchCtrl"]
                                  - enzymeData["HomCtrl"])
                                 / enzymeData["StanFluo"])
@@ -639,7 +699,7 @@ def oxidaseActivity(enzymeData):
     return enzymeData
 
 
-def plotOxidaseActivity(enzymeData, pyroConcenDF, dryWtSamples, plotPath):
+def plotOxidaseActivity(enzymeData, dryWtSamples, plotPath):
     """Plots oxidase activities.
 
     Before this function can be run, the enzymeData dataframe must contain
@@ -649,9 +709,6 @@ def plotOxidaseActivity(enzymeData, pyroConcenDF, dryWtSamples, plotPath):
     ----------
     enzymeData : Pandas dataframe
         Dataframe of calculated enzyme activity
-    pyroConcenDF : Pandas dataframe
-        Dataframe of pyrogallol concentrations. Pyrogallol is the substrate
-        for oxidative enzymes in this project.
     dryWtSamples : List of strings
         List of strings, with each string being the name of a sample from a
         timepoint. I use the sample names generated from the dry weight
