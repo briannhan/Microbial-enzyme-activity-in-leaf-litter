@@ -579,6 +579,7 @@ T0Clr = pd.merge(left=T0Clr, right=pyroConcenDF, how="inner", on="PlateRow")
 
 # (2) Graph oxidative enzyme activity
 T0OxiGraphs = T0graphsFolder/"Oxidative enzymes"
+"""
 for sample in samples:
     sampleDF = T0Clr[T0Clr["ID"] == sample]
     vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
@@ -611,3 +612,6 @@ for sample in samples:
     figureName = figureTitle + ".png"
     figPath = T0OxiGraphs/figureName
     py.savefig(figPath)
+"""
+# %%
+# Should I clean T0 black plate data or start analyzing new timepoints?
