@@ -183,6 +183,7 @@ def dryWtT035(enzymeData, processedDryWt, timepoint: str):
     dryDF = processedDryWt[timepointBool]
     enzymeData = pd.merge(enzymeData, dryDF, how="left", on="ID")
     enzymeData = enzymeData.drop(labels="Time", axis=1)
+    enzymeData = enzymeData.dropna(axis=0, how="any")
     return enzymeData
 
 
@@ -552,27 +553,18 @@ def separateControls(enzymeData):
     return bufferAbs, subConAbs, homCtrlAbs, enzymeData
 
 
-def blank(bufferAbs, subConAbs, homCtrlAbs, enzymeData):
+def blank(enzymeData):
     """Removes the absorbance of the buffer from the substrate and homogenate
     controls and the assay wells. I'm calling this process 'blanking'.
 
-    Before this function can be run, the control and buffer readings must be
-    separated and removed from enzymeData. After this function is run, the
-    control readings can be merged back into enzymeData.
+    This function calls the separateControls() function that separate control,
+    buffer, and assay readings readings into separate dataframes. After this
+    function is run, the control readings can be merged back into enzymeData.
 
     Parameters
     ----------
-    bufferAbs : Pandas dataframe
-        A dataframe of the absorbance of the buffer wells (which contains
-        buffer and water)
-    subConAbs : Pandas dataframe
-        A dataframe of the absorbance of the substrate control wells (which
-        contains buffer and substrate)
-    homCtrlAbs : Pandas dataframe
-        A dataframe of the absorbance of the homogenate control wells (which
-        contains the filtered homogenate and water)
     enzymeData : Pandas dataframe
-        A dataframe with only assay readings
+        A dataframe of oxidative enzyme activity data
 
     Returns
     -------
@@ -588,6 +580,7 @@ def blank(bufferAbs, subConAbs, homCtrlAbs, enzymeData):
         A dataframe with only assay readings with the absorbance of the buffer
         removed
     """
+    bufferAbs, subConAbs, homCtrlAbs, enzymeData = separateControls(enzymeData)
     bufferAbs = bufferAbs.rename(mapper={"Assay": "Buffer"}, axis=1)
     bufferAbsColsToDrop = ["Well", "Assay date", "Replicate"]
     bufferAbs = bufferAbs.drop(labels=bufferAbsColsToDrop, axis=1)
@@ -604,30 +597,28 @@ def blank(bufferAbs, subConAbs, homCtrlAbs, enzymeData):
     return subConAbs, homCtrlAbs, enzymeData
 
 
-def mergeCtrls(subConAbs, homCtrlAbs, enzymeData):
+def processCtrls(enzymeData):
     """Merge control dataframes into the enzymeData dataframe to produce a
     single dataframe with assay readings and control readings side by side to
     facilitate calculations.
 
-    Before this function can be run, the input dataframes must have been
-    blanked. After this function is run, oxidase activities can be calculated.
+    This function calls the blank() function that removes the absorbance of
+    buffer from the control readings and the assay readings. After this
+    function is run, oxidase activities can be calculated.
 
     Parameters
     ----------
-    subConAbs : Pandas dataframe
-        A dataframe of blanked out substrate control readings.
-    homCtrlAbs : Pandas dataframe
-        A dataframe of blanked out homogenate control readings.
     enzymeData : Pandas dataframe
-        A dataframe of blanked out assay readings.
+        A dataframe of oxidative enzyme absorbance readings.
 
     Returns
     -------
     enzymeData : Pandas dataframe
         The original enzymeData dataframe with substrate and homogenate control
         readings added, so that this dataframe has assay readings and readings
-        from substrate and homogenate controls.
+        from substrate and homogenate controls and all readings are blanked.
     """
+    subConAbs, homCtrlAbs, enzymeData = blank(enzymeData)
     subConAbsColsToDrop = ["Well", "Assay date", "Replicate", "Buffer"]
     subConAbs = subConAbs.rename(columns={"Assay": "SubCtrl"})
     subConAbs = subConAbs.drop(labels=subConAbsColsToDrop, axis=1)

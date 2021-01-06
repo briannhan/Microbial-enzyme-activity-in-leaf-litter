@@ -621,7 +621,8 @@ T3hydroPath = enzymeFolderPath/enzymeFiles[2]
 T3hydro = pd.read_csv(T3hydroPath, sep="\t", header=None,
                       names=ogEnzymeCols)
 T3hydro = ew.longNamesAndWells(T3hydro)
-T3hydroCounts, T3ExtraMisnamed = ew.missingExtraMisnamed(T3hydro, samples)
+T3hydroCounts, T3HydroMissingMisnamed = ew.missingExtraMisnamed(T3hydro,
+                                                                samples)
 T3hydro = ew.dryWtT035(T3hydro, dryDFprocessed, "T3 (April 11, 2018)")
 T3hydro = ew.treatments(T3hydro)
 T3hydro = ew.subCtrlWrangling(T3hydro)
@@ -630,4 +631,53 @@ T3hydro = ew.homCtrlWrangling(T3hydro, T3hydroHomCtrlDF)
 T3hydro = ew.hydrolaseActivity(T3hydro)
 T3graphsFolder = unprocessPaths/"T3"
 T3hydroGraphsPath = T3graphsFolder/"Hydrolytic enzymes"
-ew.plotHydrolaseActivity(T3hydro, samples, T3hydroGraphsPath, "T3 Black")
+# ew.plotHydrolaseActivity(T3hydro, samples, T3hydroGraphsPath, "T3 Black")
+# %%
+# Processing T3 clear plate data
+T3oxiPath = enzymeFolderPath/enzymeFiles[3]
+T3oxi = pd.read_csv(T3oxiPath, sep="\t", header=None, names=ogEnzymeCols)
+T3oxi = ew.longNamesAndWells(T3oxi)
+T3oxiCounts, T3oxiMissingMisnamed = ew.missingExtraMisnamed(T3oxi, samples)
+# sample 48LXX is misnamed as 48LLX in the original data set, so I'm changing
+# its name in this analysis
+for index, row in T3oxi.iterrows():
+    if row["ID"] == "48LLX":
+        T3oxi.loc[index, "ID"] = "48LXX"
+T3oxiCounts, T3oxiMissingMisnamed = ew.missingExtraMisnamed(T3oxi, samples)
+T3oxi = ew.dryWtT035(T3oxi, dryDFprocessed, "T3 (April 11, 2018)")
+T3oxi = ew.treatments(T3oxi)
+T3oxi = ew.enzymesNreplicates(T3oxi)
+T3oxi = ew.processCtrls(T3oxi)
+T3oxi = ew.oxidaseActivity(T3oxi)
+T3oxiGraphsPath = T3graphsFolder/"Oxidative enzymes"
+ew.plotOxidaseActivity(T3oxi, samples, T3oxiGraphsPath)
+# %%
+# Processing T5 black plate data
+T5hydroPath = enzymeFolderPath/enzymeFiles[4]
+T5hydro = pd.read_csv(T5hydroPath, sep="\t", header=None,
+                      names=ogEnzymeCols)
+
+T5hydro = ew.longNamesAndWells(T5hydro)
+T5hydroCounts, T5hydroMissingMisnamed = ew.missingExtraMisnamed(T5hydro,
+                                                                samples)
+# samples 14RRX, 18RXX, & 7LRX are missing from this dataset for some reason
+# Let's see if the data I get from Ashish is has these samples
+T5hydroPathA = enzymeFolderPath/"t5.txt"
+T5hydroA = pd.read_csv(T5hydroPathA, sep="\t", header=None,
+                       names=ogEnzymeCols)
+T5hydroA = ew.longNamesAndWells(T5hydroA)
+T5hydroCountsA, T5hydroMissingMisnamedA = ew.missingExtraMisnamed(T5hydroA,
+                                                                  samples)
+# Yeah Ashish's samples still don't have these 3 samples for some reason
+T5hydro = ew.dryWtT035(T5hydro, dryDFprocessed, "T5 Nov 18")
+T5hydro = ew.treatments(T5hydro)
+
+T5hydro = ew.subCtrlWrangling(T5hydro)
+'''
+T5hydro, T5hydroHomCtrlDF = ew.stanQuench(T5hydro)
+T5hydro = ew.homCtrlWrangling(T5hydro, T5hydroHomCtrlDF)
+T5hydro = ew.hydrolaseActivity(T5hydro)
+T5graphsFolder = unprocessPaths/"T5"
+T5hydroGraphsPath = T5graphsFolder/"Hydrolytic enzymes"
+ew.plotHydrolaseActivity(T5hydro, samples, T5hydroGraphsPath, "T5 Black")'''
+# %%
