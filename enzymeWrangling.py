@@ -77,7 +77,7 @@ pyroConcenDF = pd.DataFrame({"PlateRow": list("ABCDEFGH"),
 # Functions to wrangle both hydrolytic & oxidative enzyme data
 
 
-def longNamesAndWells(enzymeData):
+def longNamesAndWells(enzData):
     """Processes the long sample names & wells in an enzyme dataframe that
     occurred from reading in a dataframe of raw enzyme data. The long sample
     names are in a column, which are then split up into 2 columns. The Well
@@ -86,7 +86,7 @@ def longNamesAndWells(enzymeData):
 
     Parameters
     ----------
-    enzymeData : Pandas dataframe
+    enzData : Pandas dataframe
         Dataframe of raw enzyme data from reading in a raw enzyme data text
         file. Has 3 columns: Well, Long sample name, Assay. Well will be used
         to create 2 new columns, while Long sample name will also be used
@@ -98,24 +98,24 @@ def longNamesAndWells(enzymeData):
     the dataframe can be checked for missing, extra, misnamed plates
 
     """
-    enzymeData["Long sample name"] = enzymeData["Long sample name"].str.split("_")
-    for index, row in enzymeData.iterrows():
+    enzData["Long sample name"] = enzData["Long sample name"].str.split("_")
+    for index, row in enzData.iterrows():
         longSampleName = row["Long sample name"]  # splitted list
-        enzymeData.loc[index, "Assay date"] = longSampleName[0]
+        enzData.loc[index, "Assay date"] = longSampleName[0]
         for part in longSampleName:
             if "X" in part:
                 sampleID = part
         if "B" in longSampleName:
-            enzymeData.loc[index, "ID"] = "B"
+            enzData.loc[index, "ID"] = "B"
         elif "X" in sampleID:
-            enzymeData.loc[index, "ID"] = sampleID
+            enzData.loc[index, "ID"] = sampleID
         well = row["Well"]
         wellRow = well[0]
         wellColumn = int(well[1:])
-        enzymeData.loc[index, "PlateRow"] = wellRow
-        enzymeData.loc[index, "PlateCol"] = wellColumn
-    enzymeData = enzymeData.drop(labels="Long sample name", axis=1)
-    return enzymeData
+        enzData.loc[index, "PlateRow"] = wellRow
+        enzData.loc[index, "PlateCol"] = wellColumn
+    enzData = enzData.drop(labels="Long sample name", axis=1)
+    return enzData
 
 
 def missingExtraMisnamed(enzymeData, dryWtSamples):
@@ -719,7 +719,7 @@ def plotOxidaseActivity(enzymeData, plotPath):
     enzymeData = pd.merge(left=enzymeData, right=pyroConcenDF, how="inner",
                           on="PlateRow")
     samples = enzymeData.groupby("ID")["ID"].count().index.tolist()
-    # (2) Graph oxidative enzyme activity
+    # Graph oxidative enzyme activity
     for sample in samples:
         sampleDF = enzymeData[enzymeData["ID"] == sample]
         vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index

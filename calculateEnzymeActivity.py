@@ -18,12 +18,14 @@ section will be completed to carry out the purpose of that section.
 """
 # %%
 # Importing necessary libraries
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as py
 import os
 from pathlib import Path
 import enzymeWrangling as ew
+startTime = datetime.now()
 # %%
 # Making file & folder paths to read in data
 workingDirectory = Path(os.getcwd())
@@ -677,35 +679,17 @@ T5hydro = ew.treatments(T5hydro)
 # The original data file had a change in naming scheme between samples assayed
 # on November 29, 2018 versus samples assayed on other days and timepoints
 # T0 & T3. I changed the enzymeWrangling.py module accordingly
-# I also removed 8LXX from the main T5 hydro dataframe and put the data in
-# 2 separate dataframes, 1 for each date.
-# 8LXX was assayed on November 29, 2018 and on February 26, 2019
+# 8LXX was assayed on November 29, 2018 (181129) and
+# on February 26, 2019 (190226). The first time it was assayed, there's no
+# data. So I'm just going to remove the first time that it's assayed and
+# instead use the second time.
 
 T5hydro = ew.subCtrlWrangling(T5hydro)
-
-samp8 = T5hydro[T5hydro["ID"] == "8LXX"]
-T5hydro = T5hydro[T5hydro["ID"] != "8LXX"]
-
+T5hydro = T5hydro.dropna(axis=0, how="any")
 T5hydro, T5hydroHomCtrlDF = ew.stanQuench(T5hydro)
 T5hydro = ew.homCtrlWrangling(T5hydro, T5hydroHomCtrlDF)
 T5hydro = ew.hydrolaseActivity(T5hydro)
-ew.plotHydrolaseActivity(T5hydro, T5hydroGraphsPath, "T5 Black")
-
-# processing the first time 8LXX was assayed
-samp8_181129 = samp8[samp8["Assay date"] == "181129"]
-
-samp8_181129, samp8_181129HomCtrlDF = ew.stanQuench(samp8_181129)
-samp8_181129 = ew.homCtrlWrangling(samp8_181129, samp8_181129HomCtrlDF)
-samp8_181129 = ew.hydrolaseActivity(samp8_181129)
-ew.plotHydrolaseActivity(samp8_181129, T5hydroGraphsPath, "T5 Black")
-
-# processing the second time 8LXX was assayed
-samp8_190226 = samp8[samp8["Assay date"] == "190226"]
-
-samp8_190226, samp8_190226HomCtrlDF = ew.stanQuench(samp8_190226)
-samp8_190226 = ew.homCtrlWrangling(samp8_190226, samp8_190226HomCtrlDF)
-samp8_190226 = ew.hydrolaseActivity(samp8_190226)
-ew.plotHydrolaseActivity(samp8_190226, T5hydroGraphsPath, "T5 Black")
+# ew.plotHydrolaseActivity(T5hydro, T5hydroGraphsPath, "T5 Black")
 # %%
 # Processing T5 clear plate data
 T5oxiPath = enzymeFolderPath/enzymeFiles[5]
@@ -729,18 +713,27 @@ T5oxi = ew.enzymesNreplicates(T5oxi)
 T5oxi = ew.processCtrls(T5oxi)
 T5oxi = ew.oxidaseActivity(T5oxi)
 T5oxiGraphsPath = T5graphsFolder/"Oxidative enzymes"
-ew.plotOxidaseActivity(T5oxi, T5oxiGraphsPath)
+# ew.plotOxidaseActivity(T5oxi, T5oxiGraphsPath)
 
 # treating the dataframe of 47RRX assayed on January 25, 2019
 samp47_190125 = ew.treatments(samp47_190125)
 samp47_190125 = ew.enzymesNreplicates(samp47_190125)
 samp47_190125 = ew.processCtrls(samp47_190125)
 samp47_190125 = ew.oxidaseActivity(samp47_190125)
-ew.plotOxidaseActivity(samp47_190125, T5oxiGraphsPath)
+# ew.plotOxidaseActivity(samp47_190125, T5oxiGraphsPath)
 
 # treating the remaining 47RRX dataframe assayed on February 22, 2019
 samp47_190222 = ew.treatments(samp47_190222)
 samp47_190222 = ew.enzymesNreplicates(samp47_190222)
 samp47_190222 = ew.processCtrls(samp47_190222)
 samp47_190222 = ew.oxidaseActivity(samp47_190222)
-ew.plotOxidaseActivity(samp47_190222, T5oxiGraphsPath)
+# ew.plotOxidaseActivity(samp47_190222, T5oxiGraphsPath)
+
+# %%
+# Purpose: Calculate T6 enzyme activity
+# Tasks:
+# (1) Process T6 dry weight data
+# (2) Calculate and plot hydrolase activity for T6
+# (3) Calculate and plot oxidase activity for T6
+
+print(datetime.now() - startTime)
