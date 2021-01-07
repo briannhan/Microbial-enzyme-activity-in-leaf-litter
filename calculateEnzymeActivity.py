@@ -631,7 +631,7 @@ T3hydro = ew.homCtrlWrangling(T3hydro, T3hydroHomCtrlDF)
 T3hydro = ew.hydrolaseActivity(T3hydro)
 T3graphsFolder = unprocessPaths/"T3"
 T3hydroGraphsPath = T3graphsFolder/"Hydrolytic enzymes"
-# ew.plotHydrolaseActivity(T3hydro, samples, T3hydroGraphsPath, "T3 Black")
+# ew.plotHydrolaseActivity(T3hydro, T3hydroGraphsPath, "T3 Black")
 # %%
 # Processing T3 clear plate data
 T3oxiPath = enzymeFolderPath/enzymeFiles[3]
@@ -650,9 +650,12 @@ T3oxi = ew.enzymesNreplicates(T3oxi)
 T3oxi = ew.processCtrls(T3oxi)
 T3oxi = ew.oxidaseActivity(T3oxi)
 T3oxiGraphsPath = T3graphsFolder/"Oxidative enzymes"
-ew.plotOxidaseActivity(T3oxi, samples, T3oxiGraphsPath)
+# ew.plotOxidaseActivity(T3oxi, T3oxiGraphsPath)
 # %%
 # Processing T5 black plate data
+T5graphsFolder = unprocessPaths/"T5"
+T5hydroGraphsPath = T5graphsFolder/"Hydrolytic enzymes"
+
 T5hydroPath = enzymeFolderPath/enzymeFiles[4]
 T5hydro = pd.read_csv(T5hydroPath, sep="\t", header=None,
                       names=ogEnzymeCols)
@@ -660,24 +663,84 @@ T5hydro = pd.read_csv(T5hydroPath, sep="\t", header=None,
 T5hydro = ew.longNamesAndWells(T5hydro)
 T5hydroCounts, T5hydroMissingMisnamed = ew.missingExtraMisnamed(T5hydro,
                                                                 samples)
-# samples 14RRX, 18RXX, & 7LRX are missing from this dataset for some reason
-# Let's see if the data I get from Ashish is has these samples
+# sample 8LXX had been assayed twice for hydrolytic enzymes
+# Let's see if the data I get from Ashish are similar
 T5hydroPathA = enzymeFolderPath/"t5.txt"
 T5hydroA = pd.read_csv(T5hydroPathA, sep="\t", header=None,
                        names=ogEnzymeCols)
 T5hydroA = ew.longNamesAndWells(T5hydroA)
 T5hydroCountsA, T5hydroMissingMisnamedA = ew.missingExtraMisnamed(T5hydroA,
                                                                   samples)
-# Yeah Ashish's samples still don't have these 3 samples for some reason
+# Yeah Ashish's samples also show that 8LXX was assayed twice
 T5hydro = ew.dryWtT035(T5hydro, dryDFprocessed, "T5 Nov 18")
 T5hydro = ew.treatments(T5hydro)
+# The original data file had a change in naming scheme between samples assayed
+# on November 29, 2018 versus samples assayed on other days and timepoints
+# T0 & T3. I changed the enzymeWrangling.py module accordingly
+# I also removed 8LXX from the main T5 hydro dataframe and put the data in
+# 2 separate dataframes, 1 for each date.
+# 8LXX was assayed on November 29, 2018 and on February 26, 2019
 
 T5hydro = ew.subCtrlWrangling(T5hydro)
-'''
+
+samp8 = T5hydro[T5hydro["ID"] == "8LXX"]
+T5hydro = T5hydro[T5hydro["ID"] != "8LXX"]
+
 T5hydro, T5hydroHomCtrlDF = ew.stanQuench(T5hydro)
 T5hydro = ew.homCtrlWrangling(T5hydro, T5hydroHomCtrlDF)
 T5hydro = ew.hydrolaseActivity(T5hydro)
-T5graphsFolder = unprocessPaths/"T5"
-T5hydroGraphsPath = T5graphsFolder/"Hydrolytic enzymes"
-ew.plotHydrolaseActivity(T5hydro, samples, T5hydroGraphsPath, "T5 Black")'''
+ew.plotHydrolaseActivity(T5hydro, T5hydroGraphsPath, "T5 Black")
+
+# processing the first time 8LXX was assayed
+samp8_181129 = samp8[samp8["Assay date"] == "181129"]
+
+samp8_181129, samp8_181129HomCtrlDF = ew.stanQuench(samp8_181129)
+samp8_181129 = ew.homCtrlWrangling(samp8_181129, samp8_181129HomCtrlDF)
+samp8_181129 = ew.hydrolaseActivity(samp8_181129)
+ew.plotHydrolaseActivity(samp8_181129, T5hydroGraphsPath, "T5 Black")
+
+# processing the second time 8LXX was assayed
+samp8_190226 = samp8[samp8["Assay date"] == "190226"]
+
+samp8_190226, samp8_190226HomCtrlDF = ew.stanQuench(samp8_190226)
+samp8_190226 = ew.homCtrlWrangling(samp8_190226, samp8_190226HomCtrlDF)
+samp8_190226 = ew.hydrolaseActivity(samp8_190226)
+ew.plotHydrolaseActivity(samp8_190226, T5hydroGraphsPath, "T5 Black")
 # %%
+# Processing T5 clear plate data
+T5oxiPath = enzymeFolderPath/enzymeFiles[5]
+T5oxi = pd.read_csv(T5oxiPath, sep="\t", header=None, names=ogEnzymeCols)
+T5oxi = ew.longNamesAndWells(T5oxi)
+T5oxiCounts, T5oxiMissingMisnamed = ew.missingExtraMisnamed(T5oxi, samples)
+T5oxi = ew.dryWtT035(T5oxi, dryDFprocessed, "T5 Nov 18")
+# 47RRX had been assayed twice for oxidase activity. This caused curves from
+# both assay dates of this sample to be plotted on the same figure, overlapping
+# each other and causing confusion. So, I'll be removing 47RRX from T5oxi
+# prior to graphing. Sample 47RRX was assayed on January 25, 2019 and
+# February 22, 2019
+samp47 = T5oxi[T5oxi["ID"] == "47RRX"]
+T5oxi = T5oxi[T5oxi["ID"] != "47RRX"]
+samp47_190125 = samp47[samp47["Assay date"] == "190125"]
+samp47_190222 = samp47[samp47["Assay date"] == "190222"]
+
+# finish treating main T5oxi dataframe and plotting it
+T5oxi = ew.treatments(T5oxi)
+T5oxi = ew.enzymesNreplicates(T5oxi)
+T5oxi = ew.processCtrls(T5oxi)
+T5oxi = ew.oxidaseActivity(T5oxi)
+T5oxiGraphsPath = T5graphsFolder/"Oxidative enzymes"
+ew.plotOxidaseActivity(T5oxi, T5oxiGraphsPath)
+
+# treating the dataframe of 47RRX assayed on January 25, 2019
+samp47_190125 = ew.treatments(samp47_190125)
+samp47_190125 = ew.enzymesNreplicates(samp47_190125)
+samp47_190125 = ew.processCtrls(samp47_190125)
+samp47_190125 = ew.oxidaseActivity(samp47_190125)
+ew.plotOxidaseActivity(samp47_190125, T5oxiGraphsPath)
+
+# treating the remaining 47RRX dataframe assayed on February 22, 2019
+samp47_190222 = ew.treatments(samp47_190222)
+samp47_190222 = ew.enzymesNreplicates(samp47_190222)
+samp47_190222 = ew.processCtrls(samp47_190222)
+samp47_190222 = ew.oxidaseActivity(samp47_190222)
+ew.plotOxidaseActivity(samp47_190222, T5oxiGraphsPath)

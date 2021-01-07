@@ -100,12 +100,15 @@ def longNamesAndWells(enzymeData):
     """
     enzymeData["Long sample name"] = enzymeData["Long sample name"].str.split("_")
     for index, row in enzymeData.iterrows():
-        longSampleName = row["Long sample name"]
+        longSampleName = row["Long sample name"]  # splitted list
         enzymeData.loc[index, "Assay date"] = longSampleName[0]
+        for part in longSampleName:
+            if "X" in part:
+                sampleID = part
         if "B" in longSampleName:
             enzymeData.loc[index, "ID"] = "B"
-        elif "X" in longSampleName[2]:
-            enzymeData.loc[index, "ID"] = longSampleName[2]
+        elif "X" in sampleID:
+            enzymeData.loc[index, "ID"] = sampleID
         well = row["Well"]
         wellRow = well[0]
         wellColumn = int(well[1:])
@@ -183,7 +186,7 @@ def dryWtT035(enzymeData, processedDryWt, timepoint: str):
     dryDF = processedDryWt[timepointBool]
     enzymeData = pd.merge(enzymeData, dryDF, how="left", on="ID")
     enzymeData = enzymeData.drop(labels="Time", axis=1)
-    enzymeData = enzymeData.dropna(axis=0, how="any")
+    enzymeData = enzymeData.dropna(axis=0, how="all")
     return enzymeData
 
 
@@ -205,7 +208,11 @@ def treatments(enzymeData):
     """
     for index, row in enzymeData.iterrows():
         rowID = row["ID"]
-        if rowID != "B":
+        if rowID != "B" and type(rowID) == str:
+            # Added type of rowID conditions because of error in processing
+            # T5 black plates. This error is due to a difference in naming
+            # schemes between some samples in T5 and previous timepoints T0 &
+            # T3
             precip = rowID[-2]
             plot = int(rowID[:-3])
             if plot <= 24:
@@ -217,6 +224,9 @@ def treatments(enzymeData):
             elif precip == "R":
                 enzymeData.loc[index, "Precip"] = "Reduced"
             enzymeData.loc[index, "Plot"] = plot
+        elif type(rowID) != str:
+            print(type(rowID))
+            print(row)
     enzymeData = enzymeData.sort_values(by=["PlateCol", "Plot"])
     return enzymeData
 # %%
@@ -419,7 +429,7 @@ def hydrolaseActivity(enzymeData):
     return enzymeData
 
 
-def plotHydrolaseActivity(enzymeData, dryWtSamples, plotPath, tpoint):
+def plotHydrolaseActivity(enzymeData, plotPath, tpoint):
     """Plots the hydrolytic enzyme activity of a dataframe that represents
     a timepoint and contains calculated hydrolytic enzyme activity in that
     timepoint
@@ -429,11 +439,6 @@ def plotHydrolaseActivity(enzymeData, dryWtSamples, plotPath, tpoint):
     enzymeData : Pandas dataframe
         Dataframe of calculated hydrolytic enzyme activity from a single
         timepoint
-    dryWtSamples : List of strings
-        List of strings, with each string being the name of a sample from a
-        timepoint. I use the sample names generated from the dry weight
-        spreadsheet for T0, T3, and T5 because I know that these names are not
-        missing, misnamed, or extras
     plotPath : Path object
         The path in which the plots of hydrolytic enzyme activity will be saved
     tpoint : str
@@ -444,15 +449,19 @@ def plotHydrolaseActivity(enzymeData, dryWtSamples, plotPath, tpoint):
     None.
     """
     enzymes = ["AG", "AP", "BG", "BX", "CBH", "LAP", "NAG"]
-    for sample in dryWtSamples:
+    samples = enzymeData.groupby("ID")["ID"].count().index.tolist()
+    for sample in samples:
         sampleDF = enzymeData[enzymeData["ID"] == sample]
         vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
         vegetation = vegetation.tolist()
         vegetation = vegetation[0]
         precip = sampleDF.groupby("Precip")["Precip"].count().index.tolist()
         precip = precip[0]
-        figTitle = "{0:}, {1:}, {2:}, {3:}".format(sample, vegetation, precip,
-                                                   tpoint)
+        date = sampleDF.groupby("Assay date")["Assay date"].count().index
+        date = date.tolist()
+        date = date[0]
+        figTitle = "{0}, {1}, {2}, {3}, {4}".format(sample, vegetation, precip,
+                                                    tpoint, date)
         py.figure(num=figTitle, figsize=(25, 10))
         for enzyme in enzymes:
             if enzyme == "NAG":
@@ -461,7 +470,7 @@ def plotHydrolaseActivity(enzymeData, dryWtSamples, plotPath, tpoint):
                 plotIndex = enzymes.index(enzyme) + 1
             py.subplot(2, 4, plotIndex)
             substrateDF = sampleDF[sampleDF["Enzyme"] == enzyme]
-            py.plot(substrateDF["SubConcen"], substrateDF["Activity"])
+            py.plot("SubConcen", "Activity", data=substrateDF)
             py.scatter(substrateDF["SubConcen"], substrateDF["Activity"])
             py.title("{0:}, {1:}, {2:}, {3:}".format(sample, vegetation,
                                                      precip, enzyme))
@@ -690,7 +699,7 @@ def oxidaseActivity(enzymeData):
     return enzymeData
 
 
-def plotOxidaseActivity(enzymeData, dryWtSamples, plotPath):
+def plotOxidaseActivity(enzymeData, plotPath):
     """Plots oxidase activities.
 
     Before this function can be run, the enzymeData dataframe must contain
@@ -700,11 +709,6 @@ def plotOxidaseActivity(enzymeData, dryWtSamples, plotPath):
     ----------
     enzymeData : Pandas dataframe
         Dataframe of calculated enzyme activity
-    dryWtSamples : List of strings
-        List of strings, with each string being the name of a sample from a
-        timepoint. I use the sample names generated from the dry weight
-        spreadsheet for T0, T3, and T5 because I know that these names are not
-        missing, misnamed, or extras
     plotPath : Path object
         The path in which the plots of oxidase activity will be saved
 
@@ -714,16 +718,21 @@ def plotOxidaseActivity(enzymeData, dryWtSamples, plotPath):
     """
     enzymeData = pd.merge(left=enzymeData, right=pyroConcenDF, how="inner",
                           on="PlateRow")
-
+    samples = enzymeData.groupby("ID")["ID"].count().index.tolist()
     # (2) Graph oxidative enzyme activity
-    for sample in dryWtSamples:
+    for sample in samples:
         sampleDF = enzymeData[enzymeData["ID"] == sample]
         vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
         vegetation = vegetation.tolist()
+        print(vegetation)
         vegetation = vegetation[0]
         precip = sampleDF.groupby("Precip")["Precip"].count().index.tolist()
         precip = precip[0]
-        figureTitle = "{0:}, {1:}, {2:}".format(sample, vegetation, precip)
+        date = sampleDF.groupby("Assay date")["Assay date"].count().index
+        date = date.tolist()
+        date = date[0]
+        figureTitle = "{0}, {1}, {2}, {3}".format(sample, vegetation,
+                                                  precip, date)
         py.figure(num=figureTitle, figsize=(17, 13))
         for i in range(2):
             # Making subplot of PPO for 1 replicate
