@@ -736,4 +736,21 @@ samp47_190222 = ew.oxidaseActivity(samp47_190222)
 # (2) Calculate and plot hydrolase activity for T6
 # (3) Calculate and plot oxidase activity for T6
 
-print(datetime.now() - startTime)
+# (1) Process T6 dry weight data
+dryT6path = dryMassFolderPath/dryMassFiles[1]
+dryT6 = pd.read_excel(io=dryT6path, sheet_name="Sheet1", header=0)
+dryT6["Dry proportion (%)"] = 100*(dryT6["Weight litter after drying g"]
+                                   / dryT6["Weight litter g"])
+dryT6["Dry assay (g)"] = (dryT6["Assay weight (g)"]
+                          * dryT6["Dry proportion (%)"]/100)
+for index, row in dryT6.iterrows():
+    previousIndex = index - 1
+    if type(row["Time"]) != str:
+        dryT6.loc[index, "Time"] = dryT6.loc[previousIndex, "Time"]
+dryT6 = dryT6.dropna(axis=0, how="any")
+dryT6cols = dryT6.columns.tolist()
+dryT6colsToDrop = dryT6cols[2:-1]
+dryT6processed = dryT6.drop(labels=dryT6colsToDrop, axis="columns")
+dryDFprocessed = pd.concat(objs=[dryDFprocessed, dryT6processed], axis=0)
+
+# print(datetime.now() - startTime)
