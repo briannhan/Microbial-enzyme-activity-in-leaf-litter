@@ -66,7 +66,7 @@ hydroInfo = pd.merge(hydroInfo, blackSubConcenDF, how="inner", on="Enzyme")
 pyroHighest = (1e6)/(7.9*126.11*2)
 '''Highest concentration of pyrogallol is 1 mg pyrogallol/7.9 mL water. Molar
 mass of pyrogallol is 126.11 g/mol. I multiplied by 1,000,000 to give the final
-value units of micromole L^-1 g^-1. I divided by 2 to take into account the
+value units of micromole L^-1. I divided by 2 to take into account the
 fact that half the volume of each assay well consists of the pipetted
 substrate (pyrogallol) and the other half consists of the filtered
 homogenate.'''
@@ -155,12 +155,12 @@ def missingExtraMisnamed(enzymeData, dryWtSamples):
     return plateCounts, samplesNotInPlateNames
 
 
-def dryWtT035(enzymeData, processedDryWt, timepoint: str):
-    """Adds dry weight data to the enzymeData dataframe. This function can only
-    add the dry weight data to enzymeData dataframes from timepoints T0, T3,
-    and T5. That is because the dry weight data for these 3 timepoints are from
-    the same spreadsheet. The dry weight data for T6 had been processed in a
-    different spreadsheet, so this function is not applicable to T6.
+def dryWt(enzymeData, processedDryWt, timepoint: str):
+    """Adds dry weight data to the enzymeData dataframe. While the dry weight
+    for T6 is originally recorded in a different spreadsheet than the
+    spreadsheet that contains dry weight for T0, T3, & T5, dry weight from all
+    timepoints are combined into a single dataframe, so this function is
+    applicable to all timepoints.
 
     This function can only be run after the enzymeData dataframe had been
     checked for any missing, misnamed, or extra plates. After this function had
@@ -724,7 +724,6 @@ def plotOxidaseActivity(enzymeData, plotPath):
         sampleDF = enzymeData[enzymeData["ID"] == sample]
         vegetation = sampleDF.groupby("Vegetation")["Vegetation"].count().index
         vegetation = vegetation.tolist()
-        print(vegetation)
         vegetation = vegetation[0]
         precip = sampleDF.groupby("Precip")["Precip"].count().index.tolist()
         precip = precip[0]

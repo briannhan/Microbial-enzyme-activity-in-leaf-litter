@@ -438,7 +438,7 @@ T0ClrPath = enzymeFolderPath/enzymeFiles[1]
 T0Clr = pd.read_csv(T0ClrPath, sep="\t", header=None, names=ogEnzymeCols)
 T0Clr = ew.longNamesAndWells(T0Clr)
 T0ClrCounts, T0ClrMisnamedMissing = ew.missingExtraMisnamed(T0Clr, samples)
-T0Clr = ew.dryWtT035(T0Clr, dryDFprocessed, "T0 (November 30, 2017)")
+T0Clr = ew.dryWt(T0Clr, dryDFprocessed, "T0 (November 30, 2017)")
 T0Clr = ew.treatments(T0Clr)
 # %%
 # I'm now going to begin wrangling control data in T0 Clear. I will convert
@@ -625,7 +625,7 @@ T3hydro = pd.read_csv(T3hydroPath, sep="\t", header=None,
 T3hydro = ew.longNamesAndWells(T3hydro)
 T3hydroCounts, T3HydroMissingMisnamed = ew.missingExtraMisnamed(T3hydro,
                                                                 samples)
-T3hydro = ew.dryWtT035(T3hydro, dryDFprocessed, "T3 (April 11, 2018)")
+T3hydro = ew.dryWt(T3hydro, dryDFprocessed, "T3 (April 11, 2018)")
 T3hydro = ew.treatments(T3hydro)
 T3hydro = ew.subCtrlWrangling(T3hydro)
 T3hydro, T3hydroHomCtrlDF = ew.stanQuench(T3hydro)
@@ -646,7 +646,7 @@ for index, row in T3oxi.iterrows():
     if row["ID"] == "48LLX":
         T3oxi.loc[index, "ID"] = "48LXX"
 T3oxiCounts, T3oxiMissingMisnamed = ew.missingExtraMisnamed(T3oxi, samples)
-T3oxi = ew.dryWtT035(T3oxi, dryDFprocessed, "T3 (April 11, 2018)")
+T3oxi = ew.dryWt(T3oxi, dryDFprocessed, "T3 (April 11, 2018)")
 T3oxi = ew.treatments(T3oxi)
 T3oxi = ew.enzymesNreplicates(T3oxi)
 T3oxi = ew.processCtrls(T3oxi)
@@ -674,7 +674,7 @@ T5hydroA = ew.longNamesAndWells(T5hydroA)
 T5hydroCountsA, T5hydroMissingMisnamedA = ew.missingExtraMisnamed(T5hydroA,
                                                                   samples)
 # Yeah Ashish's samples also show that 8LXX was assayed twice
-T5hydro = ew.dryWtT035(T5hydro, dryDFprocessed, "T5 Nov 18")
+T5hydro = ew.dryWt(T5hydro, dryDFprocessed, "T5 Nov 18")
 T5hydro = ew.treatments(T5hydro)
 # The original data file had a change in naming scheme between samples assayed
 # on November 29, 2018 versus samples assayed on other days and timepoints
@@ -696,7 +696,7 @@ T5oxiPath = enzymeFolderPath/enzymeFiles[5]
 T5oxi = pd.read_csv(T5oxiPath, sep="\t", header=None, names=ogEnzymeCols)
 T5oxi = ew.longNamesAndWells(T5oxi)
 T5oxiCounts, T5oxiMissingMisnamed = ew.missingExtraMisnamed(T5oxi, samples)
-T5oxi = ew.dryWtT035(T5oxi, dryDFprocessed, "T5 Nov 18")
+T5oxi = ew.dryWt(T5oxi, dryDFprocessed, "T5 Nov 18")
 # 47RRX had been assayed twice for oxidase activity. This caused curves from
 # both assay dates of this sample to be plotted on the same figure, overlapping
 # each other and causing confusion. So, I'll be removing 47RRX from T5oxi
@@ -735,6 +735,8 @@ samp47_190222 = ew.oxidaseActivity(samp47_190222)
 # (1) Process T6 dry weight data
 # (2) Calculate and plot hydrolase activity for T6
 # (3) Calculate and plot oxidase activity for T6
+startT6 = datetime.now()
+T6graphsFolder = unprocessPaths/"T6"
 
 # (1) Process T6 dry weight data
 dryT6path = dryMassFolderPath/dryMassFiles[1]
@@ -753,4 +755,33 @@ dryT6colsToDrop = dryT6cols[2:-1]
 dryT6processed = dryT6.drop(labels=dryT6colsToDrop, axis="columns")
 dryDFprocessed = pd.concat(objs=[dryDFprocessed, dryT6processed], axis=0)
 
-# print(datetime.now() - startTime)
+# (2) Calculate and plot hydrolase activity for T6
+T6hydroPath = enzymeFolderPath/enzymeFiles[6]
+T6hydro = pd.read_csv(T6hydroPath, sep="\t", header=None, names=ogEnzymeCols)
+T6hydro = ew.longNamesAndWells(T6hydro)
+T6hydroCounts, T6hydroMissingMisnamed = ew.missingExtraMisnamed(T6hydro,
+                                                                samples)
+T6hydro = ew.dryWt(T6hydro, dryDFprocessed, "T6 Feb 19")
+T6hydro = ew.treatments(T6hydro)
+T6hydro = ew.subCtrlWrangling(T6hydro)
+T6hydro, T6hydroHomCtrlDF = ew.stanQuench(T6hydro)
+T6hydro = ew.homCtrlWrangling(T6hydro, T6hydroHomCtrlDF)
+T6hydro = ew.hydrolaseActivity(T6hydro)
+T6hydroGraphsPath = T6graphsFolder/"Hydrolytic enzymes"
+# ew.plotHydrolaseActivity(T6hydro, T6hydroGraphsPath, "T6 Black")
+
+# (3) Calculate and plot oxidase activity for T6
+T6oxiPath = enzymeFolderPath/enzymeFiles[7]
+T6oxi = pd.read_csv(T6oxiPath, sep="\t", header=None, names=ogEnzymeCols)
+T6oxi = ew.longNamesAndWells(T6oxi)
+T6oxiCounts, T6oxiMissingMisnamed = ew.missingExtraMisnamed(T6oxi, samples)
+T6oxi = ew.dryWt(T6oxi, dryDFprocessed, "T6 Feb 19")
+T6oxi = ew.treatments(T6oxi)
+T6oxi = ew.enzymesNreplicates(T6oxi)
+T6oxi = ew.processCtrls(T6oxi)
+T6oxi = ew.oxidaseActivity(T6oxi)
+T6oxiGraphsPath = T6graphsFolder/"Oxidative enzymes"
+# ew.plotOxidaseActivity(T6oxi, T6oxiGraphsPath)
+print(datetime.now() - startT6)
+# %%
+print(datetime.now() - startTime)
