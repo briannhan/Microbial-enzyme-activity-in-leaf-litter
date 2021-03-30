@@ -21,6 +21,7 @@ section will be completed to carry out the purpose of that section.
 from datetime import datetime
 import numpy as np
 import pandas as pd
+from pandas import ExcelWriter
 import matplotlib.pyplot as py
 import os
 from pathlib import Path
@@ -735,7 +736,7 @@ samp47_190222 = ew.oxidaseActivity(samp47_190222)
 # (1) Process T6 dry weight data
 # (2) Calculate and plot hydrolase activity for T6
 # (3) Calculate and plot oxidase activity for T6
-startT6 = datetime.now()
+# startT6 = datetime.now()
 T6graphsFolder = unprocessPaths/"T6"
 
 # (1) Process T6 dry weight data
@@ -782,6 +783,50 @@ T6oxi = ew.processCtrls(T6oxi)
 T6oxi = ew.oxidaseActivity(T6oxi)
 T6oxiGraphsPath = T6graphsFolder/"Oxidative enzymes"
 # ew.plotOxidaseActivity(T6oxi, T6oxiGraphsPath)
-print(datetime.now() - startT6)
+# print(datetime.now() - startT6)
+# %%
+# Purpose: Output the calculated enzyme activity into a spreadsheet
+# Tasks:
+# (1) Normalize substrate concentrations of hydrolytic enzyme activity
+# dataframes by dry mass
+# (2) Merge dataframes of substrate concentrations to oxidative enzyme activty
+# dataframes and normalize by dry mass
+# (3) Output the data into an Excel file where each sheet represents either
+# the hydrolase or oxidase activity of a single time point
+
+# (1) Normalize substrate concentrations of hydrolytic enzyme activity
+# dataframes by dry mass
+hydroDFs = [T0Black, T3hydro, T5hydro, T6hydro]
+for df in hydroDFs:
+    df["NormSubConcen"] = df["SubConcen"]/df["Dry assay (g)"]
+
+# (2) Merge dataframes of substrate concentrations to oxidative enzyme activty
+# dataframes and normalize by dry mass
+T5oxiFrames = [T5oxi, samp47_190125, samp47_190222]
+T5oxi = pd.concat(objs=T5oxiFrames, axis=0)
+T5oxi = T5oxi.sort_values(by=["PlateCol", "Plot", "Assay date"])
+
+T3oxi = pd.merge(left=T3oxi, right=pyroConcenDF, on="PlateRow")
+T5oxi = pd.merge(left=T5oxi, right=pyroConcenDF, on="PlateRow")
+T6oxi = pd.merge(left=T6oxi, right=pyroConcenDF, on="PlateRow")
+
+oxiDFs = [T0Clr, T3oxi, T5oxi, T6oxi]
+for df in oxiDFs:
+    df["NormSubConcen"] = df["SubConcen"]/df["Dry assay (g)"]
+
+# (3) Output the data into an Excel file where each sheet represents either
+# the hydrolase or oxidase activity of a single time point
+outputSheets = ["T0 Hydrolases", "T0 Oxidases", "T3 Hydrolases", "T3 Oxidases",
+                "T5 Hydrolases", "T5 Oxidases", "T6 Hydrolases", "T6 Oxidases"]
+outputDFs = [T0Black, T0Clr, T3hydro, T3oxi, T5hydro, T5oxi, T6hydro, T6oxi]
+outputFileName = "Unprocessed Enzyme Activity.xlsx"
+outputPath = enzymeFolderPath/outputFileName
+with ExcelWriter(outputPath) as writer:
+    for i in range(8):
+        df = outputDFs[i]
+        dfCols = df.columns.tolist()
+        outputDFs[i].to_excel(writer, outputSheets[i], columns=dfCols,
+                              index=False)
+
 # %%
 print(datetime.now() - startTime)
