@@ -804,7 +804,7 @@ for df in hydroDFs:
 # dataframes and normalize by dry mass
 T5oxiFrames = [T5oxi, samp47_190125, samp47_190222]
 T5oxi = pd.concat(objs=T5oxiFrames, axis=0)
-T5oxi = T5oxi.sort_values(by=["PlateCol", "Plot", "Assay date"])
+T5oxi = T5oxi.sort_values(by=["PlateRow", "PlateCol", "Plot"])
 
 T3oxi = pd.merge(left=T3oxi, right=pyroConcenDF, on="PlateRow")
 T5oxi = pd.merge(left=T5oxi, right=pyroConcenDF, on="PlateRow")
