@@ -20,6 +20,8 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import numpy as np
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as py
 startTime = datetime.now()
 
 # Accessing the necessary files, which are (1) Excel file of unprocessed,
@@ -80,7 +82,7 @@ for index, row in T0hydroProcessing.iterrows():
             dfToProcess = sampleDF[sampleDF["Enzyme"] == enzyme]
             indexMax = dfToProcess["Activity"].idxmax()
             dfIndices = dfToProcess.index.tolist()
-            indicesToDrop = np.arange(dfIndices[0], indexMax + 1)
+            indicesToDrop = np.arange(dfIndices[0], indexMax)
             # print(row["ID"], enzyme, "all indices:", dfIndices, "max index:",
             #       indexMax, "indices to drop:", indicesToDrop)
             T0hydroData = T0hydroData.drop(index=indicesToDrop)
@@ -90,9 +92,14 @@ print("Final shape is", finalShape)
 # Purpose: Fit the single-substrate, single-enzyme approximation of equilibrium
 # chemistry (ECA) by Tang and Riley 2013 to the processed T0 hydrolase activity
 # data and store the parameters in a new dataframe
+# Tasks:
+# (1) Create ECA function
+# (2) Fit function to T0 hydrolase dataframe
+
+# (1) Create ECA function
 
 
-def ECA(k2, E, Km):
+def ECA(S, k2, E, Km):
     """
     This is the single-substrate, single-enzyme equilibrium chemistry
     approximation (ECA) developed by Tang and Riley 2013. The units of the
@@ -102,18 +109,83 @@ def ECA(k2, E, Km):
 
     Parameters
     ----------
+    S : TYPE
+        The concentration of substrates in a well. Units are micromolar g^-1.
     k2 : TYPE
         The rate constant of the 2nd step in equilibrium chemistry. Units are
-        micromolar g^-1 s^-1.
+        L hr^-1.
     E : TYPE
         The concentration of enzymes in a well. Units are micromolar g^-1.
     Km : TYPE
-        The concentration of substrates in a well. Units are micromolar g^-1.
+        Michaelis-Menten constant. The equilibrium constant that is the ratio
+        between the rate of breakdown of the enzyme-substrate complex and the
+        formation of the enzyme-substrate complex. Units are micromolar g^-1.
 
     Returns
     -------
-    Fitted enzyme activity
+    Fitted enzyme activity. Units are micromole hr^-1
     """
-    V = 
+    return (k2*E*S)/(Km + E + S)
+
+
+# (2) Fit function to T0 hydrolase dataframe
+samplesDict = {"ID": samples}
+T0k2 = pd.DataFrame(data=samplesDict)
+T0enzymeConcen = pd.DataFrame(data=samplesDict)
+T0Km = pd.DataFrame(data=samplesDict)
+test4LXX = T0hydroData[T0hydroData["ID"] == "4LXX"]
+test4LXX_AG = test4LXX[test4LXX["Enzyme"] == "AG"]
+params1, paramCov1 = curve_fit(ECA, test4LXX_AG["NormSubConcen"],
+                               test4LXX_AG["Activity"],
+                               bounds=(0, np.inf))
+params2, paramCov2 = curve_fit(ECA, test4LXX_AG["NormSubConcen"],
+                               test4LXX_AG["Activity"])
+# testFig = py.figure(figsize=(8, 6))
+# subplot1 = testFig.add_subplot(1, 1, 1)
+# py.title("4LXX AG test")
+# py.xlabel("Normalized substrate concentration (micromolar/g)")
+# py.ylabel("Normalized enzyme activity (micromole/hr)")
+# py.plot("NormSubConcen", "Activity", data=test4LXX_AG, marker="o",
+#         linestyle="-", color="b",)
+# testXvals = np.linspace(0, test4LXX_AG["NormSubConcen"].max())
+# testY1 = ECA(testXvals, params1[0], params1[1], params1[2])
+# testY2 = ECA(testXvals, params2[0], params2[1], params2[2])
+# py.plot(testXvals, testY1, "-g")
+# py.plot(testXvals, testY2, "-r")
+# T0k2.loc["4LXX", "AG"] = params[0]
+# T0enzymeConcen.loc["4LXX", "AG"] = params[1]
+# T0Km.loc["4LXX", "AG"] = params[2]
+'''So, I noticed something weird. When I didn't set any boundaries, I get a
+specific set of parameter values. When I set the boundaries of the parameter
+values so that they are between 0 and positive infinity, I get a different set
+of parameter values even though the first set of values are all positive. Why?
+
+And also, when I plotted both sets of parameters, both of them fit the data
+equally well to each other, so much so that the values they predict are
+indistinguishable from each other unless you zoom in very, very closely.
+So, shit. Wonder what I should do now.
+
+Still, setting the bounds of parameter values to be between 0 & positive
+infinity is, I think, very important, so I'll keep doing that.
+'''
+
+for sample in samples:
+    sampleDF = T0hydroData[T0hydroData["ID"] == sample]
+    sampleIndex = T0k2[T0k2["ID"] == sample].index
+    for enzyme in hydroEnzymes:
+        enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
+        params, paramCov = curve_fit(ECA, enzymeDF["NormSubConcen"],
+                                     enzymeDF["Activity"])
+        T0k2.loc[sampleIndex, enzyme] = params[0]
+        T0enzymeConcen.loc[sampleIndex, enzyme] = params[1]
+        T0Km.loc[sampleIndex, enzyme] = params[2]
+"""This nested for loop failed at the AG enzyme of sample 25LRX. Might need to
+throw that sample out. Also, Steve suggested that I use Michaelis-Menten
+instead so that I'd be less likely to run into this identifiability problem and
+also to make it easier to compare to prior work.
+
+Using Michaelis-Menten means that I'm gonna have to rework my hypotheses,
+though. Boo.
+"""
 # %%
 print(datetime.now() - startTime)
