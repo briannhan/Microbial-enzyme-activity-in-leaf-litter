@@ -44,6 +44,36 @@ def ECA(substrateConcentration, k2, E, Km):
     return (k2*E*substrateConcentration)/(Km + E + substrateConcentration)
 
 
+def MM(S, Vmax, Km):
+    """
+    Calculates enzyme activity according to the Michaelis-Menten equation
+
+    Parameters
+    ----------
+    S : TYPE
+        Substrate concentration. If not normalized, then units are molar. If
+        normalized, then units are molar/g.
+    Vmax : TYPE
+        Maximum reaction velocity. If not normalized, then units are molar/s.
+        If normalized, then units are molar s^-1 g^-1.
+    Km : TYPE
+        Often called the half-saturation constant. In Michaelis-Menten terms,
+        this is the concentration of substrates at which the reaction velocity
+        is half of the maximum reaction velocity. By definition, this is the
+        ratio between the rate of breakdown of the enzyme-substrate complex
+        and the rate of formation of the enzyme-substrate complex. If not
+        normalized, then units are molar. If normalized, then units are
+        molar s^-1 g^-1.
+
+    Returns
+    -------
+    Enzyme activity
+        Rate at which an enzyme breaks down a substrate. Same units as Vmax.
+
+    """
+    return (Vmax*S)/(Km + S)
+
+
 # %%
 # Making figure 1
 substrate = np.linspace(start=0, stop=500)  # mol/L
@@ -118,7 +148,7 @@ py.plot(activityModSEKm, activityModk2)
 workingDir = Path(os.getcwd())
 figuresFolder = workingDir/"Normalizing examples"
 figure1Path = figuresFolder/(figure1Title + ".png")
-py.savefig(figure1Path)
+# py.savefig(figure1Path)
 # %%
 # Making 2nd figure where I normalize 3 samples
 figure2Title = "Normalizing 3 litter samples"
@@ -209,7 +239,7 @@ py.xlim(right=750)
 py.plot(normSubstrate3, normActivity3ModSEKm)
 
 figure2Path = figuresFolder/(figure2Title + ".png")
-py.savefig(figure2Path)
+# py.savefig(figure2Path)
 
 # %%
 # In this section, I will have a single litter sample with known normalized
@@ -285,3 +315,122 @@ k2 remains the same if it's not normalized, contrary to my hypothesis.
 However, enzyme concentrations and Km remain the same if it's normalized,
 following my hypothesis. So, before making statistical comparisons, enzyme
 concentrations and Km must be normalized. However, k2 doesn't need to be.'''
+# %%
+"""So after I found that model identifiability is an issue with the ECA model,
+Steve suggests that I use Michaelis-Menten (MM) like previous studies. So now
+I'm going to see how to normalize MM parameters (Vmax & Km) accordingly so that
+if I assay the same sample at 2 different litter masses, I will get the same
+parameter values
+
+In this section, I'll calculate normalized enzyme activity through 2 ways (by
+normalizing only Vmax first and then by normalizing Vmax, Km, and substrate
+concentrations) and see if both ways will yield the same normalized enzyme
+activity.
+"""
+MMfigTitle = "Testing the normalizing of Vmax, Km, & S in Michaelis-Menten"
+py.figure(num=MMfigTitle, figsize=(20, 15))
+substrateMM = substrate
+VmaxMM = 100
+KmMM = 50
+activityMM = MM(substrateMM, VmaxMM, KmMM)
+litterMassMM = 2
+
+# Plotting overall enzyme activity
+py.subplot(2, 3, 1)
+py.title("Overall activity, not normalized")
+py.xlabel("Substrate concentration (molar)")
+py.ylabel("Enzyme activity (molar/s)")
+py.xlim(right=550)
+py.ylim(top=100)
+py.plot(substrateMM, activityMM)
+
+# Plotting enzyme activity normalized by litter mass
+normActivityMM = activityMM/litterMassMM
+py.subplot(2, 3, 2)
+py.title("Overall activity calculated then normalized")
+py.xlabel("Substrate concentration (molar)")
+py.ylabel("Normalized enzyme activity (molar s^-1 g^-1)")
+py.xlim(right=550)
+py.ylim(top=100)
+py.plot(substrateMM, normActivityMM)
+
+# Plotting calculated enzyme activity when Vmax is normalized
+normVmaxMM = VmaxMM/litterMassMM
+normActivityMM2 = MM(substrateMM, normVmaxMM, KmMM)
+py.subplot(2, 3, 3)
+py.title("Vmax/litterMassMM")
+py.xlabel("Substrate concentration (molar)")
+py.ylabel("Normalized enzyme activity (molar s^-1 g^-1)")
+py.xlim(right=550)
+py.ylim(top=100)
+py.plot(substrateMM, normActivityMM2)
+
+# Plotting enzyme activity that's calculated and normalized afterwards against
+# normalized substrate concentrations
+normSubstrateMM = substrateMM/litterMassMM
+py.subplot(2, 3, 4)
+py.title("Normalized activity vs normalized substrates")
+py.xlabel("Normalized substrate concentration (molar/g)")
+py.ylabel("Normalized enzyme activity (molar s^-1 g^-1)")
+py.xlim(right=550)
+py.ylim(top=100)
+py.plot(normSubstrateMM, normActivityMM)
+
+# Plotting calculated enzyme activity when Vmax, Km, & substrate concentrations
+# are all normalized
+normKmMM = KmMM/litterMassMM
+normActivityMM3 = MM(normSubstrateMM, normVmaxMM, normKmMM)
+py.subplot(2, 3, 5)
+py.title("Vmax, Km, S all normalized")
+py.xlabel("Normalized substrate concentration (molar/g)")
+py.ylabel("Normalize enzyme activity (molar s^-1 g^-1)")
+py.xlim(right=550)
+py.ylim(top=100)
+py.plot(normSubstrateMM, normActivityMM3)
+
+# Plotting 2 different methods of calculating normalized enzyme activity (that
+# is normalized from the beginning using normalized parameters and/or
+# substrates rather than normalized afterwards) to see whether both methods
+# are as accurate as each other.
+py.subplot(2, 3, 6)
+py.title("Methods of calculating normalized activity")
+py.xlabel("Normalized enzyme activity 1 (molar s^-1 g^-1)")
+py.ylabel("Normalized enzyme activity 2 (molar s^-1 g^-1)")
+py.plot(normActivityMM2, normActivityMM3)
+# %%
+# In this section, I will perform some nonlinear regressions on 3 different
+# litter masses of the same sample and normalize either only Vmax or both Vmax,
+# Km, and substrate concentrations and see which way of normalizing will yield
+# me the same parameter values (Vmax & Km) for all 3 litter masses.
+litterMassMMtest = 0.9
+normActivityOG = activityMM/litterMassMMtest
+
+litterMassMMtest1stVal = 0.5
+activityMMtest1 = normActivityOG*litterMassMMtest1stVal
+normSubstrateMM1 = substrateMM/litterMassMMtest1stVal
+paramsTest1stVal, params1Cov = curve_fit(MM, substrateMM, activityMMtest1,
+                                         bounds=(0, np.inf))
+paramsTest1stValNorm = paramsTest1stVal/litterMassMMtest1stVal
+
+litterMassMMtest2ndVal = 2
+activityMMtest2 = normActivityOG*litterMassMMtest2ndVal
+normSubstrateMM2 = substrateMM/litterMassMMtest2ndVal
+paramsTest2ndVal, params2Cov = curve_fit(MM, substrateMM, activityMMtest2,
+                                         bounds=(0, np.inf))
+paramsTest2ndValNorm = paramsTest2ndVal/litterMassMMtest2ndVal
+
+litterMassMMtest3rdVal = 6
+activityMMtest3 = normActivityOG*litterMassMMtest3rdVal
+paramsTest3rdVal, params3Cov = curve_fit(MM, substrateMM, activityMMtest3,
+                                         bounds=(0, np.inf))
+paramsTest3rdValNorm = paramsTest3rdVal/litterMassMMtest3rdVal
+"""So, if I don't divide the parameters by their litter masses, then the Km
+in all 3 litter masses will be equal, but the Vmax in all 3 will not be equal.
+If I divide the parameters by their litter masses, then the Vmax in all 3 will
+be equal but not the Km. So, I guess this means that when I do nonlinear
+regressions, I should do it between normalized enzyme activity and
+non-normalized substrate concentration, since doing so will yield a Km that
+hasn't been divided by litter mass and a Vmax that had been divided by litter
+mass, and these parameter values should be equal regardless of litter mass as
+long as they're from the same sample.
+"""
