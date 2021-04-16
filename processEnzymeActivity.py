@@ -174,18 +174,32 @@ for sample in samples:
     sampleIndex = T0k2[T0k2["ID"] == sample].index
     for enzyme in hydroEnzymes:
         enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
-        params, paramCov = curve_fit(ECA, enzymeDF["NormSubConcen"],
-                                     enzymeDF["Activity"])
-        T0k2.loc[sampleIndex, enzyme] = params[0]
-        T0enzymeConcen.loc[sampleIndex, enzyme] = params[1]
-        T0Km.loc[sampleIndex, enzyme] = params[2]
-"""This nested for loop failed at the AG enzyme of sample 25LRX. Might need to
-throw that sample out. Also, Steve suggested that I use Michaelis-Menten
-instead so that I'd be less likely to run into this identifiability problem and
-also to make it easier to compare to prior work.
+        try:
+            params, paramCov = curve_fit(ECA, enzymeDF["NormSubConcen"],
+                                         enzymeDF["Activity"])
+            T0k2.loc[sampleIndex, enzyme] = params[0]
+            T0enzymeConcen.loc[sampleIndex, enzyme] = params[1]
+            T0Km.loc[sampleIndex, enzyme] = params[2]
+        except RuntimeError:
+            print("Can't fit sample {0:}, enzyme {1:}".format(sample, enzyme))
+            T0k2.loc[sampleIndex, enzyme] = "can't fit"
+            T0enzymeConcen.loc[sampleIndex, enzyme] = "can't fit"
+            T0Km.loc[sampleIndex, enzyme] = "can't fit"
+
+"""This nested for loop failed at the AG enzyme of sample 25LRX before I added
+in the try/accept statement. Might need to throw that sample out. Also, Steve
+suggested that I use Michaelis-Menten instead so that I'd be less likely to run
+into this identifiability problem and also to make it easier to compare to
+prior work.
 
 Using Michaelis-Menten means that I'm gonna have to rework my hypotheses,
 though. Boo.
 """
+# %%
+# Purpose: Construct some functions to fit the Michaelis-Menten equation to
+# my data.
+# Tasks:
+# (1) Define a Michaelis-Menten equation that takes non-normalized enzyme
+# activity
 # %%
 print(datetime.now() - startTime)

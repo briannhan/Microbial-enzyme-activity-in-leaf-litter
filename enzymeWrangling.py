@@ -761,3 +761,86 @@ def plotOxidaseActivity(enzymeData, plotPath):
         figPath = plotPath/figureName
         py.savefig(figPath)
     return
+
+
+# %%
+# Nonlinear regressions
+
+
+def MM(S, Vmax, Km):
+    """
+    A Michaelis-Menten function. The function outputs the activity of a
+    particular enzyme given a set of non-normalized substrate concentrations
+    and the Michaelis-Menten parameters for that enzyme. The purpose of this
+    function is to be fitted to enzyme activity data using nonlinear regression
+    to produce parameter values that will then be statistically analyzed.
+
+    Parameters
+    ----------
+    S : float/integers or Pandas series of floats/integers
+        The non-normalized substrate concentration in units of micromolar. The
+        normalized concentration would be if this is divided by dry litter
+        mass.
+    Vmax : float
+        Normalized maximum reaction velocity, normalized because if nonlinear
+        regression is used to fit this function, it will produce a Vmax that is
+        divided by the litter mass. Units are micromole g^-1 hr^-1.
+    Km : float
+        Michaelis-Menten constant. While normally referred to as the
+        half-saturation constant, the concentration of substrates at which
+        the reaction velocity is half that of the maximum reaction velocity,
+        its more precise definition is the equilibrium between the breakdown
+        of the enzyme-substrate complex into products and substrates and the
+        formation of the enzyme-substrate complex from substrates. It is the
+        ratio between these rates of breakdown and formation. Units are
+        micromolar, like substrate concentrations. The seemingly weird units
+        of Vmax does not actually require any unit conversions for Km, so we
+        can keep the same units on Km.
+
+    Returns
+    -------
+    Reaction velocity, enzyme activity, units of micromole g^-1 hr^-1, similar
+    to Vmax.
+
+    """
+    return (Vmax*S)/(Km + S)
+
+
+def nonlinRegress(data, enzymeType):
+    """
+    Performs nonlinear regression by fitting the MM function to a dataframe
+    that contains the input for MM (substrate concentration) and the output
+    values for MM (reaction velocity). As a dataframe of hydrolytic enzymes
+    vs oxidative enzymes are formatted differently from each other, there will
+    be some slight differences in how they are handled. Ultimately, this
+    function produces a dataframe containing the enzyme parameters as output.
+
+    Parameters
+    ----------
+    data : Pandas dataframe
+        Dataframe of enzyme activity and substrate concentration.
+    enzymeType : String
+        Specifies the enzyme type (hydrolotic or oxidative) as there will be
+        differences in how each are handled. Use 'H' for hydrolytic enzymes,
+        aka black plates, and 'O' for oxidative enzymes, aka clear plates.
+
+    Returns
+    -------
+    Pandas dataframe of enzyme parameters
+    """
+    samples = data.groupby("ID")["ID"].count().index.tolist()
+    for sample in samples:
+    sampleDF = data[data["ID"] == sample]
+    for enzyme in hydroEnzymes:
+        enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
+        try:
+            params, paramCov = curve_fit(ECA, enzymeDF["NormSubConcen"],
+                                         enzymeDF["Activity"])
+            T0k2.loc[sampleIndex, enzyme] = params[0]
+            T0enzymeConcen.loc[sampleIndex, enzyme] = params[1]
+            T0Km.loc[sampleIndex, enzyme] = params[2]
+        except RuntimeError:
+            print("Can't fit sample {0:}, enzyme {1:}".format(sample, enzyme))
+            T0k2.loc[sampleIndex, enzyme] = "can't fit"
+            T0enzymeConcen.loc[sampleIndex, enzyme] = "can't fit"
+            T0Km.loc[sampleIndex, enzyme] = "can't fit"
