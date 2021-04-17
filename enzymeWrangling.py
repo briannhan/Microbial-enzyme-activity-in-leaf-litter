@@ -9,7 +9,9 @@ data and to help plot them.
 import pandas as pd
 import matplotlib.pyplot as py
 import numpy as np
+from scipy.optimize import curve_fit
 py.style.use("dark_background")
+
 # %%
 # Making dataframes of substrate concentrations, enzyme names, amounts of
 # standards, and other plate information
@@ -806,7 +808,7 @@ def MM(S, Vmax, Km):
     return (Vmax*S)/(Km + S)
 
 
-def nonlinRegress(data, enzymeType):
+def nonlinRegress(data, enzymeType, timepoint=None):
     """
     Performs nonlinear regression by fitting the MM function to a dataframe
     that contains the input for MM (substrate concentration) and the output
@@ -823,24 +825,129 @@ def nonlinRegress(data, enzymeType):
         Specifies the enzyme type (hydrolotic or oxidative) as there will be
         differences in how each are handled. Use 'H' for hydrolytic enzymes,
         aka black plates, and 'O' for oxidative enzymes, aka clear plates.
+    timepoint : int
+        The timepoint of when the data was collected (either 0, 3, 5, or 6).
+        The purpose of this parameter is only to allow for the processing of
+        sample 47RRX in timepoint 5, which was assayed twice for oxidative
+        enzymes.
 
     Returns
     -------
     Pandas dataframe of enzyme parameters
     """
+    # samples = data.groupby("ID")["ID"].count().index.tolist()
+    if enzymeType == "H":
+        hydroEnzymes = data.groupby("Enzyme")["Enzyme"].count().index.tolist()
+    elif enzymeType == "O" and timepoint == 5:
+        # removing sample 47RRX because in T5, its oxidative enzyme activity
+        # was assayed twice.
+        samp47 = data[data["ID"] == "47RRX"]
+        samp47_190125 = samp47[samp47["Assay date"] == "190125"]
+        samp47_190222 = samp47[samp47["Assay date"] == "190222"]
+        data = data[data["ID"] != "47RRX"]
     samples = data.groupby("ID")["ID"].count().index.tolist()
+
+    VmaxDF = pd.DataFrame({"ID": samples})
+    KmDF = pd.DataFrame({"ID": samples})
     for sample in samples:
-    sampleDF = data[data["ID"] == sample]
-    for enzyme in hydroEnzymes:
-        enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
-        try:
-            params, paramCov = curve_fit(ECA, enzymeDF["NormSubConcen"],
-                                         enzymeDF["Activity"])
-            T0k2.loc[sampleIndex, enzyme] = params[0]
-            T0enzymeConcen.loc[sampleIndex, enzyme] = params[1]
-            T0Km.loc[sampleIndex, enzyme] = params[2]
-        except RuntimeError:
-            print("Can't fit sample {0:}, enzyme {1:}".format(sample, enzyme))
-            T0k2.loc[sampleIndex, enzyme] = "can't fit"
-            T0enzymeConcen.loc[sampleIndex, enzyme] = "can't fit"
-            T0Km.loc[sampleIndex, enzyme] = "can't fit"
+        sampleDF = data[data["ID"] == sample]
+        sampleIndex = VmaxDF[VmaxDF["ID"] == sample].index
+        if enzymeType == "H":
+            for enzyme in hydroEnzymes:
+                enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
+                enzymeDF = enzymeDF.sort_values(by="SubConcen")
+                try:
+                    params, paramVar = curve_fit(MM, enzymeDF["SubConcen"],
+                                                 enzymeDF["Activity"],
+                                                 bounds=(0, np.inf))
+                    VmaxDF.loc[sampleIndex, enzyme] = params[0]
+                    KmDF.loc[sampleIndex, enzyme] = params[1]
+                except RuntimeError:
+                    print("Can't fit {0:}, enzyme {1:}".format(sample, enzyme))
+                    VmaxDF.loc[sampleIndex, enzyme] = "can't fit"
+                    KmDF.loc[sampleIndex, enzyme] = "can't fit"
+        elif enzymeType == "O":
+            for i in range(2):
+                replicate = i + 1
+                repDF = sampleDF[sampleDF["Replicate"] == replicate]
+                repDF = repDF.sort_values(by="SubConcen")
+                try:
+                    paramsPPO, paramVarPPO = curve_fit(MM, repDF["SubConcen"],
+                                                       repDF["PPO activity"],
+                                                       bounds=(0, np.inf))
+                    PPOcol = "PPO {0:.d}".format(replicate)
+                    VmaxDF.loc[sampleIndex, PPOcol] = paramsPPO[0]
+                    KmDF.loc[sampleIndex, PPOcol] = paramsPPO[1]
+
+                    paramsPER, paramVarPER = curve_fit(MM, repDF["SubConcen"],
+                                                       repDF["PER activity"],
+                                                       bounds=(0, np.inf))
+                    PERcol = "PER {0:.d}".format(replicate)
+                    VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
+                    KmDF.loc[sampleIndex, PERcol] = paramVarPER[1]
+                except RuntimeError:
+                    print("Can't fit {0:}, replicate {1:}".format(sample,
+                                                                  replicate))
+                    VmaxPPO = VmaxDF.loc[sampleIndex, PPOcol]
+                    VmaxPER = VmaxDF.loc[sampleIndex, PERcol]
+                    if type(VmaxPPO) != float:
+                        VmaxDF.loc[sampleIndex, PPOcol] = "can't fit"
+                        KmDF.loc[sampleIndex, PPOcol] = "can't fit"
+                        print("Can't fit PPO, replicate {0}".format(replicate))
+
+                    elif type(VmaxPER) != float:
+                        VmaxDF.loc[sampleIndex, PERcol] = "can't fit"
+                        KmDF.loc[sampleIndex, PERcol] = "can't fit"
+                        print("Can't fit PER, replicate {0}".format(replicate))
+
+    if enzymeType == "O" and timepoint == 5:
+        samp47frames = [samp47_190125, samp47_190222]
+        for sampleDF in samp47frames:
+            for i in range(2):
+                if sampleDF == samp47_190125:
+                    replicate = i + 1
+                elif sampleDF == samp47_190222:
+                    replicate = i + 3
+                repDF = sampleDF[sampleDF["Replicate"] == replicate]
+                repDF = repDF.sort_values(by="SubConcen")
+                try:
+                    paramsPPO, paramVarPPO = curve_fit(MM, repDF["SubConcen"],
+                                                       repDF["PPO activity"],
+                                                       bounds=(0, np.inf))
+                    PPOcol = "PPO {0:.d}".format(replicate)
+                    VmaxDF.loc[sampleIndex, PPOcol] = paramsPPO[0]
+                    KmDF.loc[sampleIndex, PPOcol] = paramsPPO[1]
+
+                    paramsPER, paramVarPER = curve_fit(MM, repDF["SubConcen"],
+                                                       repDF["PER activity"],
+                                                       bounds=(0, np.inf))
+                    PERcol = "PER {0:.d}".format(replicate)
+                    VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
+                    KmDF.loc[sampleIndex, PERcol] = paramVarPER[1]
+                except RuntimeError:
+                    print("Can't fit {0:}, replicate {1:}".format(sample,
+                                                                  replicate))
+                    VmaxPPO = VmaxDF.loc[sampleIndex, PPOcol]
+                    VmaxPER = VmaxDF.loc[sampleIndex, PERcol]
+                    if type(VmaxPPO) != float:
+                        VmaxDF.loc[sampleIndex, PPOcol] = "can't fit"
+                        KmDF.loc[sampleIndex, PPOcol] = "can't fit"
+                        print("Can't fit PPO, replicate {0}".format(replicate))
+
+                    elif type(VmaxPER) != float:
+                        VmaxDF.loc[sampleIndex, PERcol] = "can't fit"
+                        KmDF.loc[sampleIndex, PERcol] = "can't fit"
+                        print("Can't fit PER, replicate {0}".format(replicate))
+    VmaxDF = pd.melt(VmaxDF, id_vars="ID", var_name="Enzyme",
+                     value_name="Vmax")
+    KmDF = pd.melt(KmDF, id_vars="ID", var_name="Enzyme", value_name="Km")
+    paramsDF = pd.merge(left=VmaxDF, right=KmDF, how="inner",
+                        on=["ID", "Enzyme"])
+    if enzymeType == "O":
+        paramsDF["Enzyme"] = paramsDF["Enzyme"].str.split(" ")
+        for index, row in paramsDF.iterrows():
+            enzymeList = row["Enzyme"]
+            paramsDF.loc[index, "Replicate"] = enzymeList[1]
+            paramsDF.loc[index, "Enzyme"] = enzymeList[0]
+    paramsDF = paramsDF.sort_values(by=["ID"])
+    return paramsDF

@@ -22,6 +22,7 @@ from datetime import datetime
 import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as py
+import enzymeWrangling as ew
 startTime = datetime.now()
 
 # Accessing the necessary files, which are (1) Excel file of unprocessed,
@@ -185,6 +186,7 @@ for sample in samples:
             T0k2.loc[sampleIndex, enzyme] = "can't fit"
             T0enzymeConcen.loc[sampleIndex, enzyme] = "can't fit"
             T0Km.loc[sampleIndex, enzyme] = "can't fit"
+T0k2Melt = pd.melt(T0k2, "ID", var_name="Enzyme", value_name="k2")
 
 """This nested for loop failed at the AG enzyme of sample 25LRX before I added
 in the try/accept statement. Might need to throw that sample out. Also, Steve
@@ -194,12 +196,13 @@ prior work.
 
 Using Michaelis-Menten means that I'm gonna have to rework my hypotheses,
 though. Boo.
+
+I've went ahead and copied and pasted the code above into enzymeWrangling.py
+and reworking this code in order to apply it to both hydrolytic and oxidative
+enzymes and to oxidative enzymes in T5, in which sample 47 was assayed twice.
 """
 # %%
-# Purpose: Construct some functions to fit the Michaelis-Menten equation to
-# my data.
-# Tasks:
-# (1) Define a Michaelis-Menten equation that takes non-normalized enzyme
-# activity
+# Purpose: Fit Michaelis-Menten parameters to T0 hydrolase activity data
+T0params = ew.nonlinRegress(T0hydroData, "H")
 # %%
 print(datetime.now() - startTime)
