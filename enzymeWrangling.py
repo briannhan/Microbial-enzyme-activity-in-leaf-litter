@@ -766,6 +766,91 @@ def plotOxidaseActivity(enzymeData, plotPath):
 
 
 # %%
+# Cleaning calculated enzyme activity by (1) setting negative activity values
+# to 0 and (2) removing substrate inhibition
+
+
+def cleanKeysDFs(processDF):
+    """
+    Produces 2 dataframes -- 1 for hydrolase activity, 1 for oxidase
+    activity -- of cleaning keys that will be used to clean dataframes of
+    calculated hydrolase or oxidase activity
+
+    Parameters
+    ----------
+    processDF : Pandas dataframe
+        Original dataframe of processing keys as read in. This dataframe will
+        be separated into 2 dataframes.
+
+    Returns
+    -------
+    2 dataframes of keys, 1 for hydrolase activity, 1 for oxidase activity
+
+    """
+    columns = processDF.columns.tolist()
+    # The last column is called "Unnamed" as in the original Excel file, it
+    # does not have a name. This column will be removed
+    columns = columns[:-1]
+
+    hydroEnzymes = columns[0:7]
+    oxidaseEnzymesNreplicates = columns[7:]
+    hydroCleanDF = processDF.copy()
+    oxiCleanDF = processDF.copy()  # haha
+    hydroCleanDF = hydroCleanDF.drop(columns=oxidaseEnzymesNreplicates)
+    oxiCleanDF = oxiCleanDF.drop(columns=hydroEnzymes)
+    return hydroCleanDF, oxiCleanDF
+
+
+def cleanHydro(processDF, data):
+    """
+    Processes a hydrolytic enzyme activity dataframe by setting negative
+    activity values to 0 and removing substrate inhibition. These are the 2
+    main problems that plague the data quality of the calculated hydrolase
+    activity, although relatively few samples have the problem of negative
+    hydrolase activity.
+
+    Parameters
+    ----------
+    processDF : Pandas dataframe
+        Dataframe containing the keys that will be used to denote the types
+        of processing to be applied to a sample's enzyme. This dataframe will
+        be the original dataframe as read in from the "Samples with errors"
+        Excel file, and will be processed using the cleanKeysDFs() function.
+    data : Pandas dataframe
+        Dataframe of hydrolytic enzyme activity data. This dataframe had
+        already been sorted so that for each enzyme of a sample, the rows are
+        ordered in descending order by substrate concentration so that as you
+        go down the rows of a particular sample's enzyme, the substrate
+        concentration decreases.
+
+    Returns
+    -------
+    The cleaned dataframe of hydrolytic enzyme activity data.
+
+    """
+    hydroProcessDF, oxiProcessDF = cleanKeysDFs(processDF)
+
+    # Setting negative activity values to 0
+    hydroProcessInd = data.index[data["Activity"] < 0].tolist()
+    data.loc[hydroProcessInd, "Activity"] = 0
+
+    # Removing substrate inhibition
+    hydroEnzymes = hydroProcessDF.columns.tolist()[1:]
+    initialShape = data.shape
+    print("Initial shape is", initialShape)
+    for index, row in hydroProcessDF.iterrows():
+        for enzyme in hydroEnzymes:
+            if row[enzyme] == "o":  # "o" stands for substrate inhibition
+                sampleDF = data[data["ID"] == row["ID"]]
+                dfToProcess = sampleDF[sampleDF["Enzyme"] == enzyme]
+                indexMaxActivity = dfToProcess["Activity"].idxmax()
+                dfIndices = dfToProcess.index.tolist()
+                indicesToDrop = np.arange(dfIndices[0], indexMaxActivity)
+                data = data.drop(index=indicesToDrop)
+    finalShape = data.shape
+    print("Final shape is", finalShape)
+    return data
+# %%
 # Nonlinear regressions
 
 

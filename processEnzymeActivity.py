@@ -71,10 +71,12 @@ T0hydroData.loc[T0hydroProcessInd, "Activity"] = 0
 # but higher substrate concentration than the data point with the highest
 # enzyme activity
 samples = T0processing["ID"].tolist()
-oxiErrorLabels = ["PPO rep 1", "PPO rep 2", "PER rep 1", "PER rep 2"]
+oxiErrorLabels = ["PPO rep 1", "PPO rep 2",
+                  "PER rep 1", "PER rep 2",]
 T0hydroProcessing = T0processing.drop(labels=oxiErrorLabels, axis=1)
 hydroEnzymes = T0hydroProcessing.columns.tolist()[1:]
 initialShape = T0hydroData.shape
+print(T0hydroData)
 print("Initial shape is", initialShape)
 for index, row in T0hydroProcessing.iterrows():
     for enzyme in hydroEnzymes:
@@ -170,23 +172,24 @@ Still, setting the bounds of parameter values to be between 0 & positive
 infinity is, I think, very important, so I'll keep doing that.
 '''
 
-for sample in samples:
-    sampleDF = T0hydroData[T0hydroData["ID"] == sample]
-    sampleIndex = T0k2[T0k2["ID"] == sample].index
-    for enzyme in hydroEnzymes:
-        enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
-        try:
-            params, paramCov = curve_fit(ECA, enzymeDF["NormSubConcen"],
-                                         enzymeDF["Activity"])
-            T0k2.loc[sampleIndex, enzyme] = params[0]
-            T0enzymeConcen.loc[sampleIndex, enzyme] = params[1]
-            T0Km.loc[sampleIndex, enzyme] = params[2]
-        except RuntimeError:
-            print("Can't fit sample {0:}, enzyme {1:}".format(sample, enzyme))
-            T0k2.loc[sampleIndex, enzyme] = "can't fit"
-            T0enzymeConcen.loc[sampleIndex, enzyme] = "can't fit"
-            T0Km.loc[sampleIndex, enzyme] = "can't fit"
-T0k2Melt = pd.melt(T0k2, "ID", var_name="Enzyme", value_name="k2")
+# for sample in samples:
+#     sampleDF = T0hydroData[T0hydroData["ID"] == sample]
+#     sampleIndex = T0k2[T0k2["ID"] == sample].index
+#     for enzyme in hydroEnzymes:
+#         enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
+#         try:
+#             params, paramCov = curve_fit(ECA, enzymeDF["NormSubConcen"],
+#                                          enzymeDF["Activity"])
+#             T0k2.loc[sampleIndex, enzyme] = params[0]
+#             T0enzymeConcen.loc[sampleIndex, enzyme] = params[1]
+#             T0Km.loc[sampleIndex, enzyme] = params[2]
+#         except RuntimeError:
+#             print("Can't fit sample {0:}, enzyme {1:}".format(sample,
+#                                                               enzyme))
+#             T0k2.loc[sampleIndex, enzyme] = "can't fit"
+#             T0enzymeConcen.loc[sampleIndex, enzyme] = "can't fit"
+#             T0Km.loc[sampleIndex, enzyme] = "can't fit"
+# T0k2Melt = pd.melt(T0k2, "ID", var_name="Enzyme", value_name="k2")
 
 """This nested for loop failed at the AG enzyme of sample 25LRX before I added
 in the try/accept statement. Might need to throw that sample out. Also, Steve
@@ -202,7 +205,7 @@ and reworking this code in order to apply it to both hydrolytic and oxidative
 enzymes and to oxidative enzymes in T5, in which sample 47 was assayed twice.
 """
 # %%
-# Purpose: Fit Michaelis-Menten parameters to T0 hydrolase activity data
+# Purpose: Obtain Michaelis-Menten parameters for T0 hydrolase data
 T0params = ew.nonlinRegress(T0hydroData, "H")
 # %%
 print(datetime.now() - startTime)
