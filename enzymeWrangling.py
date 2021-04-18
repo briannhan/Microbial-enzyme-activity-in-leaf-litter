@@ -1036,3 +1036,168 @@ def nonlinRegress(data, enzymeType, timepoint=None):
             paramsDF.loc[index, "Enzyme"] = enzymeList[0]
     paramsDF = paramsDF.sort_values(by=["ID"])
     return paramsDF
+
+
+def plotRegress(data, params, enzymeType, processInstance, timepoint=None):
+    """
+    Plots the cleaned enzyme activity after removing substrate inhibition and
+    setting negative values to 0 along with predicted enzyme activity from
+    their fitted Michaelis-Menten parameters.
+
+    Parameters
+    ----------
+    data : Pandas dataframe
+        Dataframe containing either hydrolase activity or oxidase activity of a
+        particular time point.
+    params : Pandas dataframe
+        Dataframe containing Michaelis-Menten parameters of hydrolases or
+        oxidases for a particular time point.
+    enzymeType : string
+        Values are either "H" for hydrolases or "O" for oxidases. Dataframes
+        of hydrolase and oxidase activity were formatted differently, so they
+        will be treated differently in this function
+    timepoint : int
+        The time point for when the litter bags were sampled and removed from
+        the field. The only purpose of this parameter is to deal with sample
+        47RRX during time point 5, when its oxidase activity was assayed twice.
+    processInstance : int
+        The number of times that the calculated enzyme activity had been
+        processed/cleaned. The 1st time that it is cleaned includes the simple
+        replacement of negative activity values with 0 and removing substrate
+        inhibition.
+
+    Returns
+    -------
+    None.
+
+    """
+    if enzymeType == "O" and timepoint == 5:
+        samp47 = data[data["ID"] == "47RRX"]
+        samp47_190125 = samp47[samp47["Assay date"] == "190125"]
+        samp47_190222 = samp47[samp47["Assay date"] == "190222"]
+        data = data[data["ID"] != "47RRX"]
+    elif enzymeType == "H":
+        hydroEnzymes = data.groupby("Enzyme")["Enzyme"].count.index.tolist()
+    samples = data.groupby("ID")["ID"].count.index.tolist()
+    for sample in samples:
+        sampleData = data[data["ID"] == sample]
+        sampleParams = params[params["ID"] == sample]
+        date = sampleData.groupby("Assay date")["Assay date"].count.index
+        date = date.tolist()[0]
+        figTitle = "{0}, T{1}, {2}, processed {3}".format(sample, timepoint,
+                                                          date,
+                                                          processInstance)
+        py.figure(figTitle, (25, 15))
+        if enzymeType == "H":
+            for i in range(len(hydroEnzymes)):
+                enzyme = hydroEnzymes[i]
+                enzymeDF = sampleData[sampleData["Enzyme"] == enzyme]
+                py.subplot(2, 3, i + 1)
+                py.title(enzyme)
+                py.xlabel("Substrate concentration (micromolar)")
+                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+                py.plot("SubConcen", "Activity", data=enzymeDF, fmt="-o",
+                        label="Actual values")
+
+                paramValues = sampleParams[sampleParams["Enzyme"] == enzyme]
+                Vmax = paramValues["Vmax"]
+                Km = paramValues["Km"]
+                maxConcenInd = enzymeDF["SubConcen"].idxmax()
+                maxConcen = enzymeDF.loc[maxConcenInd, "SubConcen"]
+                minConcenInd = enzymeDF["SubConcen"].idxmin()
+                minConcen = enzymeDF.loc[minConcenInd, "SubConcen"]
+                Sregress = np.linspace(minConcen, maxConcen)
+                Vhat = Vmax*Sregress/(Km + Sregress)
+                py.plot(Sregress, Vhat, "-r", label="Michaelis-Menten")
+                py.legend()
+        elif enzymeType == "O":
+            for i in range(2):
+                replicate = i + 1
+                repData = sampleData[sampleData["Replicate"] == replicate]
+
+                # Plotting PPO replicate
+                py.subplot(2, 2, (i*2) + 1)
+                subplotTitle = "PPO replicate {0}".format(replicate)
+                py.title(subplotTitle)
+                py.xlabel("Substrate concentration (micromolar)")
+                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+                py.plot("SubConcen", "PPO activity", data=repData, fmt="-o",
+                        label="Actual values")
+                repParams = params[params["Replicate"] == replicate]
+                VmaxPPO = repParams["Vmax"]
+                KmPPO = repParams["Km"]
+                maxConcenInd = repData["SubConcen"].idxmax()
+                maxConcen = repData.loc[maxConcenInd, "SubConcen"]
+                minConcenInd = repData["SubConcen"].idxmin()
+                minConcen = repData.loc[minConcenInd, "SubConcen"]
+                Sregress = np.linspace(minConcen, maxConcen)
+                VhatPPO = VmaxPPO*Sregress/(KmPPO + Sregress)
+                py.plot(Sregress, VhatPPO, "-r", label="Michaelis-Menten")
+                py.legend()
+
+                # Plotting PER replicate
+                py.subplot(2, 2, (i*2) + 2)
+                subplotTitle = "PER replicate {0}".format(replicate)
+                py.title(subplotTitle)
+                py.xlabel("Substrate concentration (micromolar)")
+                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+                py.plot("SubConcen", "PER activity", data=repData, fmt="-o",
+                        label="Actual values")
+                repParams = params[params["Replicate"] == replicate]
+                VmaxPER = repParams["Vmax"]
+                KmPER = repParams["Km"]
+                maxConcenInd = repData["SubConcen"].idxmax()
+                maxConcen = repData.loc[maxConcenInd, "SubConcen"]
+                minConcenInd = repData["SubConcen"].idxmin()
+                minConcen = repData.loc[minConcenInd, "SubConcen"]
+                Sregress = np.linspace(minConcen, maxConcen)
+                VhatPER = VmaxPER*Sregress/(KmPER + Sregress)
+                py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
+                py.legend()
+    if enzymeType == "O" and timepoint == 5:
+        samp47frames = [samp47_190125, samp47_190222]
+        for samp47Data in samp47frames:
+            for i in range(2):
+                replicate = i + 1
+                repData = samp47Data[samp47Data["Replicate"] == replicate]
+
+                # Plotting PPO replicate
+                py.subplot(2, 2, (i*2) + 1)
+                subplotTitle = "PPO replicate {0}".format(replicate)
+                py.title(subplotTitle)
+                py.xlabel("Substrate concentration (micromolar)")
+                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+                py.plot("SubConcen", "PPO activity", data=repData, fmt="-o",
+                        label="Actual values")
+                repParams = params[params["Replicate"] == replicate]
+                VmaxPPO = repParams["Vmax"]
+                KmPPO = repParams["Km"]
+                maxConcenInd = repData["SubConcen"].idxmax()
+                maxConcen = repData.loc[maxConcenInd, "SubConcen"]
+                minConcenInd = repData["SubConcen"].idxmin()
+                minConcen = repData.loc[minConcenInd, "SubConcen"]
+                Sregress = np.linspace(minConcen, maxConcen)
+                VhatPPO = VmaxPPO*Sregress/(KmPPO + Sregress)
+                py.plot(Sregress, VhatPPO, "-r", label="Michaelis-Menten")
+                py.legend()
+
+                # Plotting PER replicate
+                py.subplot(2, 2, (i*2) + 2)
+                subplotTitle = "PER replicate {0}".format(replicate)
+                py.title(subplotTitle)
+                py.xlabel("Substrate concentration (micromolar)")
+                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
+                py.plot("SubConcen", "PER activity", data=repData, fmt="-o",
+                        label="Actual values")
+                repParams = params[params["Replicate"] == replicate]
+                VmaxPER = repParams["Vmax"]
+                KmPER = repParams["Km"]
+                maxConcenInd = repData["SubConcen"].idxmax()
+                maxConcen = repData.loc[maxConcenInd, "SubConcen"]
+                minConcenInd = repData["SubConcen"].idxmin()
+                minConcen = repData.loc[minConcenInd, "SubConcen"]
+                Sregress = np.linspace(minConcen, maxConcen)
+                VhatPER = VmaxPER*Sregress/(KmPER + Sregress)
+                py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
+                py.legend()
+    return
