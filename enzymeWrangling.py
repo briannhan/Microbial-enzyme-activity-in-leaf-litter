@@ -10,6 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as py
 import numpy as np
 from scipy.optimize import curve_fit
+from pathlib import Path
 py.style.use("dark_background")
 
 # %%
@@ -920,7 +921,7 @@ def nonlinRegress(data, enzymeType, timepoint=None):
     -------
     Pandas dataframe of enzyme parameters
     """
-    # samples = data.groupby("ID")["ID"].count().index.tolist()
+    # Obtaining hydrolytic enzyme names if data is hydrolase activity
     if enzymeType == "H":
         hydroEnzymes = data.groupby("Enzyme")["Enzyme"].count().index.tolist()
     elif enzymeType == "O" and timepoint == 5:
@@ -934,9 +935,14 @@ def nonlinRegress(data, enzymeType, timepoint=None):
 
     VmaxDF = pd.DataFrame({"ID": samples})
     KmDF = pd.DataFrame({"ID": samples})
+
+    # Performing regression for oxidase activity (if it's T5, then it doesn't
+    # include 47RRX) as well as hydrolase activity
     for sample in samples:
         sampleDF = data[data["ID"] == sample]
         sampleIndex = VmaxDF[VmaxDF["ID"] == sample].index
+
+        # Performing nonlinear regression for hydrolase activity
         if enzymeType == "H":
             for enzyme in hydroEnzymes:
                 enzymeDF = sampleDF[sampleDF["Enzyme"] == enzyme]
@@ -951,83 +957,105 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                     print("Can't fit {0:}, enzyme {1:}".format(sample, enzyme))
                     VmaxDF.loc[sampleIndex, enzyme] = "can't fit"
                     KmDF.loc[sampleIndex, enzyme] = "can't fit"
+
+        # Performing nonlinear regression for oxidase activity (not including
+        # T5 sample 47RRX)
         elif enzymeType == "O":
             for i in range(2):
                 replicate = i + 1
                 repDF = sampleDF[sampleDF["Replicate"] == replicate]
                 repDF = repDF.sort_values(by="SubConcen")
-                try:
+                try:  # fitting MM to PPO
                     paramsPPO, paramVarPPO = curve_fit(MM, repDF["SubConcen"],
                                                        repDF["PPO activity"],
                                                        bounds=(0, np.inf))
-                    PPOcol = "PPO {0:.d}".format(replicate)
+                    PPOcol = "PPO {0:d}".format(replicate)
                     VmaxDF.loc[sampleIndex, PPOcol] = paramsPPO[0]
                     KmDF.loc[sampleIndex, PPOcol] = paramsPPO[1]
+                except RuntimeError:
+                    print("Can't fit {1}, PPO replicate {0}".format(replicate,
+                                                                    sample))
+                    VmaxDF.loc[sampleIndex, PPOcol] = "can't fit"
+                    KmDF.loc[sampleIndex, PPOcol] = "can't fit"
 
+                try:  # fitting MM to PER
                     paramsPER, paramVarPER = curve_fit(MM, repDF["SubConcen"],
                                                        repDF["PER activity"],
                                                        bounds=(0, np.inf))
-                    PERcol = "PER {0:.d}".format(replicate)
+                    PERcol = "PER {0:d}".format(replicate)
                     VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
                     KmDF.loc[sampleIndex, PERcol] = paramVarPER[1]
                 except RuntimeError:
-                    print("Can't fit {0:}, replicate {1:}".format(sample,
-                                                                  replicate))
-                    VmaxPPO = VmaxDF.loc[sampleIndex, PPOcol]
-                    VmaxPER = VmaxDF.loc[sampleIndex, PERcol]
-                    if type(VmaxPPO) != float:
-                        VmaxDF.loc[sampleIndex, PPOcol] = "can't fit"
-                        KmDF.loc[sampleIndex, PPOcol] = "can't fit"
-                        print("Can't fit PPO, replicate {0}".format(replicate))
+                    print("Can't fit {1}, PER replicate {0}".format(replicate,
+                                                                    sample))
+                    VmaxDF.loc[sampleIndex, PERcol] = "can't fit"
+                    KmDF.loc[sampleIndex, PERcol] = "can't fit"
 
-                    elif type(VmaxPER) != float:
-                        VmaxDF.loc[sampleIndex, PERcol] = "can't fit"
-                        KmDF.loc[sampleIndex, PERcol] = "can't fit"
-                        print("Can't fit PER, replicate {0}".format(replicate))
-
+    # Performing nonlinear regression for T5 oxidase sample 47RRX
     if enzymeType == "O" and timepoint == 5:
         samp47frames = [samp47_190125, samp47_190222]
+        sampleIndex = VmaxDF[VmaxDF["ID"] == "47RRX"].index
         for sampleDF in samp47frames:
+            # Following for loop loops through the replicates for sample 47RRX.
+            # The way that the parameters dataframes and the calculated enzyme
+            # activities dataframe record replicates is different. In the
+            # calculated enzyme activities dataframe, replicates are
+            # either 1 or 2 even if this sample was assayed twice. In the
+            # parameters dataframes, I intend the replicates to be a range of
+            # integers with the following mathematical notation [1, 4].
             for i in range(2):
+                replicateData = i + 1  # Replicate recorded on the dataframe
+                # of calculated enzyme activities
+
+                # Following if statements calculates replicate for the
+                # parameter dataframes
                 if sampleDF == samp47_190125:
-                    replicate = i + 1
+                    repPar = i + 1
                 elif sampleDF == samp47_190222:
-                    replicate = i + 3
-                repDF = sampleDF[sampleDF["Replicate"] == replicate]
+                    repPar = i + 3
+
+                repDF = sampleDF[sampleDF["Replicate"] == replicateData]
                 repDF = repDF.sort_values(by="SubConcen")
-                try:
+                try:  # Fitting MM to PPO activity
                     paramsPPO, paramVarPPO = curve_fit(MM, repDF["SubConcen"],
                                                        repDF["PPO activity"],
                                                        bounds=(0, np.inf))
-                    PPOcol = "PPO {0:.d}".format(replicate)
+                    PPOcol = "PPO {0:d}".format(repPar)
                     VmaxDF.loc[sampleIndex, PPOcol] = paramsPPO[0]
                     KmDF.loc[sampleIndex, PPOcol] = paramsPPO[1]
+                except RuntimeError:
+                    print("Can't fit {0:}, PPO replicate {1:}".format(sample,
+                                                                      repPar))
+                    VmaxDF.loc[sampleIndex, PPOcol] = "can't fit"
+                    KmDF.loc[sampleIndex, PPOcol] = "can't fit"
 
+                try:  # fitting MM to PER activity
                     paramsPER, paramVarPER = curve_fit(MM, repDF["SubConcen"],
                                                        repDF["PER activity"],
                                                        bounds=(0, np.inf))
-                    PERcol = "PER {0:.d}".format(replicate)
+                    PERcol = "PER {0:d}".format(repPar)
                     VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
                     KmDF.loc[sampleIndex, PERcol] = paramVarPER[1]
                 except RuntimeError:
-                    print("Can't fit {0:}, replicate {1:}".format(sample,
-                                                                  replicate))
-                    VmaxPPO = VmaxDF.loc[sampleIndex, PPOcol]
-                    VmaxPER = VmaxDF.loc[sampleIndex, PERcol]
-                    if type(VmaxPPO) != float:
-                        VmaxDF.loc[sampleIndex, PPOcol] = "can't fit"
-                        KmDF.loc[sampleIndex, PPOcol] = "can't fit"
-                        print("Can't fit PPO, replicate {0}".format(replicate))
+                    print("Can't fit {0:}, PPO replicate {1:}".format(sample,
+                                                                      repPar))
+                    VmaxDF.loc[sampleIndex, PERcol] = "can't fit"
+                    KmDF.loc[sampleIndex, PERcol] = "can't fit"
 
-                    elif type(VmaxPER) != float:
-                        VmaxDF.loc[sampleIndex, PERcol] = "can't fit"
-                        KmDF.loc[sampleIndex, PERcol] = "can't fit"
-                        print("Can't fit PER, replicate {0}".format(replicate))
+    # Reformatting eventual hydrolase parameters dataframe to have columns ID,
+    # Enzyme, Vmax, and Km. Oxidase dataframe is also reformatted like this,
+    # but their value for "Enzyme" contains both the enzyme name and replicate
+    # number, which will be processed in the following if statement.
     VmaxDF = pd.melt(VmaxDF, id_vars="ID", var_name="Enzyme",
                      value_name="Vmax")
     KmDF = pd.melt(KmDF, id_vars="ID", var_name="Enzyme", value_name="Km")
     paramsDF = pd.merge(left=VmaxDF, right=KmDF, how="inner",
                         on=["ID", "Enzyme"])
+
+    # Separates values in the "Enzyme" column of the oxidase parameters
+    # dataframe into enzyme and replicate, with the enzyme name going back
+    # to the original "Enzyme" column and the replicate number being put in
+    # a new column.
     if enzymeType == "O":
         paramsDF["Enzyme"] = paramsDF["Enzyme"].str.split(" ")
         for index, row in paramsDF.iterrows():
@@ -1038,7 +1066,8 @@ def nonlinRegress(data, enzymeType, timepoint=None):
     return paramsDF
 
 
-def plotRegress(data, params, enzymeType, processInstance, timepoint=None):
+def plotRegress(data, params, enzymeType, processInstance, timepoint,
+                saveFolder=None):
     """
     Plots the cleaned enzyme activity after removing substrate inhibition and
     setting negative values to 0 along with predicted enzyme activity from
@@ -1048,7 +1077,8 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint=None):
     ----------
     data : Pandas dataframe
         Dataframe containing either hydrolase activity or oxidase activity of a
-        particular time point.
+        particular time point. The dataframe should not contain both types
+        of enzymes, only 1 type.
     params : Pandas dataframe
         Dataframe containing Michaelis-Menten parameters of hydrolases or
         oxidases for a particular time point.
@@ -1056,29 +1086,43 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint=None):
         Values are either "H" for hydrolases or "O" for oxidases. Dataframes
         of hydrolase and oxidase activity were formatted differently, so they
         will be treated differently in this function
-    timepoint : int
-        The time point for when the litter bags were sampled and removed from
-        the field. The only purpose of this parameter is to deal with sample
-        47RRX during time point 5, when its oxidase activity was assayed twice.
     processInstance : int
         The number of times that the calculated enzyme activity had been
         processed/cleaned. The 1st time that it is cleaned includes the simple
         replacement of negative activity values with 0 and removing substrate
         inhibition.
+    timepoint : int
+        The time point for when the litter bags were sampled and removed from
+        the field. The only purpose of this parameter is to deal with sample
+        47RRX during time point 5, when its oxidase activity was assayed twice.
+    saveFolder : Path object, string, or None (by default)
+        If it's a Path object or string, then it is the folder to which the
+        figures will be saved. By default it is None, and so the figures would
+        not be saved.
 
     Returns
     -------
     None.
 
     """
+    # Removing sample 47RRX from oxidase T5 as it was assayed twice, to process
+    # it separately. The dates for these 2 samples are 190125 & 190222
     if enzymeType == "O" and timepoint == 5:
         samp47 = data[data["ID"] == "47RRX"]
-        samp47_190125 = samp47[samp47["Assay date"] == "190125"]
-        samp47_190222 = samp47[samp47["Assay date"] == "190222"]
         data = data[data["ID"] != "47RRX"]
+    # Obtaining hydrolase enzyme names if data is of hydrolase
     elif enzymeType == "H":
         hydroEnzymes = data.groupby("Enzyme")["Enzyme"].count.index.tolist()
     samples = data.groupby("ID")["ID"].count.index.tolist()
+
+    # Just in case the saveFolder is provided as an argument but isn't a Path
+    # object
+    if saveFolder is not None and type(saveFolder) == str:
+        saveFolder = Path(saveFolder)
+
+    # Plotting actual calculated enzyme activity and predicted activity based
+    # on fitted Michaelis-Menten parameters for hydrolase and oxidase (that
+    # doesn't include 47RRX if it's T5)
     for sample in samples:
         sampleData = data[data["ID"] == sample]
         sampleParams = params[params["ID"] == sample]
@@ -1088,116 +1132,198 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint=None):
                                                           date,
                                                           processInstance)
         py.figure(figTitle, (25, 15))
+
+        # If data and parameters provided are for hydrolase, then this plots
+        # predicted & actual activities of hydrolase
         if enzymeType == "H":
             for i in range(len(hydroEnzymes)):
                 enzyme = hydroEnzymes[i]
-                enzymeDF = sampleData[sampleData["Enzyme"] == enzyme]
-                py.subplot(2, 3, i + 1)
-                py.title(enzyme)
-                py.xlabel("Substrate concentration (micromolar)")
-                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
-                py.plot("SubConcen", "Activity", data=enzymeDF, fmt="-o",
-                        label="Actual values")
-
                 paramValues = sampleParams[sampleParams["Enzyme"] == enzyme]
-                Vmax = paramValues["Vmax"]
-                Km = paramValues["Km"]
-                maxConcenInd = enzymeDF["SubConcen"].idxmax()
-                maxConcen = enzymeDF.loc[maxConcenInd, "SubConcen"]
-                minConcenInd = enzymeDF["SubConcen"].idxmin()
-                minConcen = enzymeDF.loc[minConcenInd, "SubConcen"]
-                Sregress = np.linspace(minConcen, maxConcen)
-                Vhat = Vmax*Sregress/(Km + Sregress)
-                py.plot(Sregress, Vhat, "-r", label="Michaelis-Menten")
-                py.legend()
+                VmaxHydro = paramValues["Vmax"]
+                KmHydro = paramValues["Km"]
+                if VmaxHydro != "can't fit":
+                    # Creating subplot for this enzyme
+                    py.subplot(2, 3, i + 1)
+                    py.title(enzyme)
+                    py.xlabel("Substrate concentration (micromolar)")
+                    py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
+
+                    # Plotting this enzyme's calculated (actual) activity
+                    enzymeDF = sampleData[sampleData["Enzyme"] == enzyme]
+                    py.plot("SubConcen", "Activity", "o-", data=enzymeDF,
+                            label="Actual values")
+
+                    # Estimating and plotting activity based on parameters
+                    maxConcenInd = enzymeDF["SubConcen"].idxmax()
+                    maxConcen = enzymeDF.loc[maxConcenInd, "SubConcen"]
+                    minConcenInd = enzymeDF["SubConcen"].idxmin()
+                    minConcen = enzymeDF.loc[minConcenInd, "SubConcen"]
+                    Sregress = np.linspace(minConcen, maxConcen)
+                    Vhat = MM(Sregress, VmaxHydro, KmHydro)
+                    py.plot(Sregress, Vhat, "-r", label="Michaelis-Menten")
+                    py.legend()
+
+        # If the data and parameters provided are for oxidase, then this plots
+        # predicted and actual activities of oxidases (that doesn't include
+        # T5 47RRX)
         elif enzymeType == "O":
             for i in range(2):
+                # Obtaining calculated enzyme activity and parameters from this
+                # replicate
                 replicate = i + 1
                 repData = sampleData[sampleData["Replicate"] == replicate]
+                repParam = sampleParams[sampleParams["Replicate"] == replicate]
 
-                # Plotting PPO replicate
-                py.subplot(2, 2, (i*2) + 1)
-                subplotTitle = "PPO replicate {0}".format(replicate)
-                py.title(subplotTitle)
-                py.xlabel("Substrate concentration (micromolar)")
-                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
-                py.plot("SubConcen", "PPO activity", data=repData, fmt="-o",
-                        label="Actual values")
-                repParams = params[params["Replicate"] == replicate]
-                VmaxPPO = repParams["Vmax"]
-                KmPPO = repParams["Km"]
+                # Generating substrate concentrations that will be used to
+                # estimate enzyme activity based on MM parameters
                 maxConcenInd = repData["SubConcen"].idxmax()
                 maxConcen = repData.loc[maxConcenInd, "SubConcen"]
                 minConcenInd = repData["SubConcen"].idxmin()
                 minConcen = repData.loc[minConcenInd, "SubConcen"]
                 Sregress = np.linspace(minConcen, maxConcen)
-                VhatPPO = VmaxPPO*Sregress/(KmPPO + Sregress)
-                py.plot(Sregress, VhatPPO, "-r", label="Michaelis-Menten")
-                py.legend()
 
-                # Plotting PER replicate
-                py.subplot(2, 2, (i*2) + 2)
-                subplotTitle = "PER replicate {0}".format(replicate)
-                py.title(subplotTitle)
-                py.xlabel("Substrate concentration (micromolar)")
-                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
-                py.plot("SubConcen", "PER activity", data=repData, fmt="-o",
-                        label="Actual values")
-                repParams = params[params["Replicate"] == replicate]
-                VmaxPER = repParams["Vmax"]
-                KmPER = repParams["Km"]
-                maxConcenInd = repData["SubConcen"].idxmax()
-                maxConcen = repData.loc[maxConcenInd, "SubConcen"]
-                minConcenInd = repData["SubConcen"].idxmin()
-                minConcen = repData.loc[minConcenInd, "SubConcen"]
-                Sregress = np.linspace(minConcen, maxConcen)
-                VhatPER = VmaxPER*Sregress/(KmPER + Sregress)
-                py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
-                py.legend()
+                # Obtaining PPO parameters to check if PPO activity can be
+                # plotted
+                PPOparam = repParam[repParam["Enzyme"] == "PPO"]
+                VmaxPPO = PPOparam["Vmax"]
+                KmPPO = PPOparam["Km"]
+                if VmaxPPO != "can't fit":
+                    # Creating PPO subplot
+                    py.subplot(2, 2, (i*2) + 1)
+                    subplotTitle = "PPO replicate {0}".format(replicate)
+                    py.title(subplotTitle)
+                    py.xlabel("Substrate concentration (micromolar)")
+                    py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
+
+                    # Plotting PPO actual activities for this replicate
+                    py.plot("SubConcen", "PPO activity", "o-", data=repData,
+                            label="Actual values")
+
+                    # Estimating & plotting PPO activities based on parameters
+                    # for this replicate
+                    VhatPPO = MM(Sregress, VmaxPPO, KmPPO)
+                    py.plot(Sregress, VhatPPO, "-r", label="Michaelis-Menten")
+                    py.legend()
+
+                # Obtaining PER parameters to check if PER activity can be
+                # plotted
+                PERparam = repParam[repParam["Enzyme"] == "PER"]
+                VmaxPER = PERparam["Vmax"]
+                KmPER = PERparam["Km"]
+                if VmaxPER != "can't fit":
+                    # Creating PER subplot
+                    py.subplot(2, 2, (i*2) + 2)
+                    subplotTitle = "PER replicate {0}".format(replicate)
+                    py.title(subplotTitle)
+                    py.xlabel("Substrate concentration (micromolar)")
+                    py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
+
+                    # Plotting actual PER activity
+                    py.plot("SubConcen", "PER activity", "o-", data=repData,
+                            label="Actual values")
+
+                    # Estimating and plotting PER activity based on parameters
+                    VhatPER = MM(Sregress, VmaxPER, KmPER)
+                    py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
+                    py.legend()
+
+        # Saving figure if the user intentionally provided a folder to save
+        if saveFolder is not None:
+            savePath = saveFolder/figTitle/".png"
+            py.savefig(savePath)
+
+    # If data is T5 oxidase, then this plots sample 47RRX
     if enzymeType == "O" and timepoint == 5:
-        samp47frames = [samp47_190125, samp47_190222]
-        for samp47Data in samp47frames:
-            for i in range(2):
-                replicate = i + 1
-                repData = samp47Data[samp47Data["Replicate"] == replicate]
+        sampleParams = params[params["ID"] == "47RRX"]
+        dates = samp47.groupby("Assay date")["Assay date"].count.index.tolist()
+        for date in dates:
+            dateData = samp47[samp47["Assay date"] == date]
+            figTitle = "{0}, T{2}, {1}, processed {3}".format(sample, date,
+                                                              timepoint,
+                                                              processInstance)
 
-                # Plotting PPO replicate
-                py.subplot(2, 2, (i*2) + 1)
-                subplotTitle = "PPO replicate {0}".format(replicate)
-                py.title(subplotTitle)
-                py.xlabel("Substrate concentration (micromolar)")
-                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
-                py.plot("SubConcen", "PPO activity", data=repData, fmt="-o",
-                        label="Actual values")
-                repParams = params[params["Replicate"] == replicate]
-                VmaxPPO = repParams["Vmax"]
-                KmPPO = repParams["Km"]
+            # Obtaining parameters for a specific date. For a specific date,
+            # there is a set of parameter each for 2 enzymes and 2 replicates,
+            # so for a specific date, there are 4 sets of parameters in total.
+            if date == "190125":
+                dateParams = sampleParams[sampleParams["Replicates"] <= 2]
+            elif date == "190222":
+                dateParams = sampleParams[sampleParams["Replicates"] >= 3]
+            py.figure(figTitle, (25, 15))
+
+            # Obtaining replicates from dateParams
+            replicates = dateParams.groupby("Replicates")["Replicates"].count
+            replicates = replicates.index.tolist()
+            for index, replicate in replicates.iteritems():
+                # Since in the T5 oxidase calculated enzyme activities data
+                # frame, the replicates are still put as 1 and 2 for sample
+                # 47RRX when, respectively, they are 3 and 4 in the parameters
+                # dataframe, the following if statement converts the replicate
+                # numbers from dateParams to replicate numbers used in the
+                # calculated enzyme activities dataframe
+                if replicate >= 3:
+                    dataRep = replicate - 2  # replicate used in the dataframe
+                    # of calculated enzyme activities
+
+                    repData = dateData[dateData["Replicate"] == dataRep]
+                    # the dataframe of calculated activities that contains this
+                    # replicate
+
+                # Generating substrate concentrations that will be used to
+                # estimate enzyme activity based on MM parameters
                 maxConcenInd = repData["SubConcen"].idxmax()
                 maxConcen = repData.loc[maxConcenInd, "SubConcen"]
                 minConcenInd = repData["SubConcen"].idxmin()
                 minConcen = repData.loc[minConcenInd, "SubConcen"]
                 Sregress = np.linspace(minConcen, maxConcen)
-                VhatPPO = VmaxPPO*Sregress/(KmPPO + Sregress)
-                py.plot(Sregress, VhatPPO, "-r", label="Michaelis-Menten")
-                py.legend()
 
-                # Plotting PER replicate
-                py.subplot(2, 2, (i*2) + 2)
-                subplotTitle = "PER replicate {0}".format(replicate)
-                py.title(subplotTitle)
-                py.xlabel("Substrate concentration (micromolar)")
-                py.ylabel("Normalized enzyme activity (micromole g^-1 hr^-1)")
-                py.plot("SubConcen", "PER activity", data=repData, fmt="-o",
-                        label="Actual values")
-                repParams = params[params["Replicate"] == replicate]
-                VmaxPER = repParams["Vmax"]
-                KmPER = repParams["Km"]
-                maxConcenInd = repData["SubConcen"].idxmax()
-                maxConcen = repData.loc[maxConcenInd, "SubConcen"]
-                minConcenInd = repData["SubConcen"].idxmin()
-                minConcen = repData.loc[minConcenInd, "SubConcen"]
-                Sregress = np.linspace(minConcen, maxConcen)
-                VhatPER = VmaxPER*Sregress/(KmPER + Sregress)
-                py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
-                py.legend()
+                # Obtaining parameters for this replicate from this date
+                repParam = dateParams[dateParams["Replicate"] == replicate]
+
+                # Obtaining PPO parameters for this replicate
+                PPOparam = repParam[repParam["Enzyme"] == "PPO"]
+                VmaxPPO = PPOparam["Vmax"]
+                KmPPO = PPOparam["Km"]
+                if VmaxPPO != "can't fit":
+                    # Creating subplot for PPO
+                    py.subplot(2, 2, replicate*2 - 1)
+                    subplotTitle = "PPO replicate {0}".format(replicate)
+                    py.title(subplotTitle)
+                    py.xlabel("Substrate concentration (micromolar)")
+                    py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
+
+                    # Plotting calculated PPO activity at this replicate
+                    py.plot("SubConcen", "PPO activity", "o-", data=repData,
+                            label="Actual values")
+
+                    # Estimating and plotting PPO activity based on parameters
+                    VhatPPO = MM(Sregress, VmaxPPO, KmPPO)
+                    py.plot(Sregress, VhatPPO, "-r", label="Michaelis-Menten")
+                    py.legend()
+
+                # Obtaining PER parameters for this replicate to check if PER
+                # activity can be estimated and actual & estimated activity
+                # can be plotted.
+                PERparam = repParam[repParam["Enzyme"] == "PER"]
+                VmaxPER = PERparam["Vmax"]
+                KmPER = PERparam["Km"]
+                if VmaxPER != "can't fit":
+                    # Creating PER subplot
+                    py.subplot(2, 2, replicate*2)
+                    subplotTitle = "PER replicate {0}".format(replicate)
+                    py.title(subplotTitle)
+                    py.xlabel("Substrate concentration (micromolar)")
+                    py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
+
+                    # Plotting calculated PER activity
+                    py.plot("SubConcen", "PER activity", "o-", data=repData,
+                            label="Actual values")
+
+                    # Estimating & plotting PER activity using MM parameters
+                    VhatPER = MM(Sregress, VmaxPER, KmPER)
+                    py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
+                    py.legend()
+            if saveFolder is not None:
+                savePath = saveFolder/figTitle/".png"
+                py.savefig(savePath)
     return
