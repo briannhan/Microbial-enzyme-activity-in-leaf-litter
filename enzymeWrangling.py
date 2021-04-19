@@ -1280,13 +1280,22 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                 # Obtaining parameters for this replicate from this date
                 repParam = dateParams[dateParams["Replicate"] == replicate]
 
-                # Obtaining PPO parameters for this replicate
+                # Setting subplot positions for PPO & PER
+                if replicate <= 2:
+                    PPOpos = replicate*2 - 1
+                    PERpos = replicate*2
+                elif replicate >= 3:
+                    PPOpos = replicate*2 - 5
+                    PERpos = replicate*2 - 4
+
+                # Obtaining PPO parameters for this replicate to check if
+                # PPO actual & estimated activities can be plotted
                 PPOparam = repParam[repParam["Enzyme"] == "PPO"]
                 VmaxPPO = PPOparam["Vmax"]
                 KmPPO = PPOparam["Km"]
                 if VmaxPPO != "can't fit":
                     # Creating subplot for PPO
-                    py.subplot(2, 2, replicate*2 - 1)
+                    py.subplot(2, 2, PPOpos)
                     subplotTitle = "PPO replicate {0}".format(replicate)
                     py.title(subplotTitle)
                     py.xlabel("Substrate concentration (micromolar)")
@@ -1309,7 +1318,7 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                 KmPER = PERparam["Km"]
                 if VmaxPER != "can't fit":
                     # Creating PER subplot
-                    py.subplot(2, 2, replicate*2)
+                    py.subplot(2, 2, PERpos)
                     subplotTitle = "PER replicate {0}".format(replicate)
                     py.title(subplotTitle)
                     py.xlabel("Substrate concentration (micromolar)")
