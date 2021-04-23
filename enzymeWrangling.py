@@ -851,6 +851,104 @@ def cleanHydro(processDF, data):
     finalShape = data.shape
     print("Final shape is", finalShape)
     return data
+
+
+def cleanOxi(processDF, data):
+    """
+    Cleans a dataframe of calculated oxidase activity of any errors. Errors
+    associated with this data are mainly negative activity values. Very few
+    samples have substrate inhibition
+
+    Parameters
+    ----------
+    processDF : Pandas dataframe
+        Dataframe containing processing keys of both calculated hydrolase and
+        oxidase activity. Only the oxidase keys will be used to clean the
+        oxidase activity dataframe.
+    data : Pandas dataframe
+        Dataframe of calculated oxidase activity. Will be off of negative
+        activity values and possible substrate inhibition.
+
+    Returns
+    -------
+    Cleaned oxidase dataframe.
+
+    """
+    # Removing negative activity values from both PPO activity & PER activity
+    # columns.
+    negativePPOind = data[data["PPO activity"] < 0].index
+    data.loc[negativePPOind, "PPO activity"] = 0
+    negativePERind = data[data["PER activity"] < 0].index
+    data.loc[negativePERind, "PER activity"] = 0
+
+    '''Luckily sample 47RRX of T5 does not have any substrate inhibition, so
+    I don't need to worry about processing it for substrate inhibition.
+    '''
+
+    # Removing substrate inhibition
+    hydroKeys, oxiKeys = cleanKeysDFs(processDF)
+    oxiKeysColumns = oxiKeys.columns.tolist()
+    for index, row in oxiKeys.iterrows():
+        sampleName = row["ID"]
+        sampleData = data[data["ID"] == sampleName]
+        for enzymeRep in oxiKeysColumns:
+            if row[enzymeRep] == "o":
+                enzymeRepList = enzymeRep.split(" ")
+                enzyme = enzymeRepList[0]
+                keyReplicate = enzymeRepList[-1]
+
+                # Accounting for T5 47RRX, which was assayed twice for oxidase
+                if keyReplicate >= 3:
+                    dataRepNum = keyReplicate - 2
+                else:
+                    dataRepNum = keyReplicate
+
+                repDF = sampleData[sampleData["Replicate"] == dataRepNum]
+                repDF = repDF.sort_values(by="SubConcen")
+                if enzyme == "PPO":
+                    maxActInd = repDF["PPO activity"].idxmax()
+                elif enzyme == "PER":
+                    maxActInd = repDF["PER activity"].idxmax()
+                maxActConcen = repDF.loc[maxActInd, "SubConcen"]
+                subInhiInd = repDF[repDF["SubConcen"] > maxActConcen].index
+                if enzyme == "PPO":
+                    data.loc[subInhiInd, "PPO activity"] = "o"
+                elif enzyme == "PER":
+                    data.loc[subInhiInd, "PER activity"] = "o"
+
+    return data
+
+
+def clean(processDF, data, enzymeType):
+    """
+    A function meant to clean a dataframe of calculated enzyme activity off of
+    substrate inhibition & negative activity values abstracted into a single
+    step.
+
+    Parameters
+    ----------
+    processDF : Pandas dataframe
+        Dataframe containing keys for how to process the dataframe of
+        calculated enzyme activity.
+    data : Pandas dataframe
+        Dataframe of calculated enzyme activity (either hydrolase or oxidase,
+        not both).
+    enzymeType : str
+        Indicates the type of enzyme being cleaned (hydrolase or oxidase). Use
+        "H" for hydrolase and "O" for oxidase.
+
+    Returns
+    -------
+    Dataframe of clean enzyme activity.
+
+    """
+    if enzymeType == "H":
+        data = cleanHydro(processDF, data)
+    elif enzymeType == "O":
+        data = cleanOxi(processDF, data)
+    return data
+
+
 # %%
 # Nonlinear regressions
 
@@ -966,8 +1064,10 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                 repDF = sampleDF[sampleDF["Replicate"] == replicate]
                 repDF = repDF.sort_values(by="SubConcen")
                 try:  # fitting MM to PPO
-                    paramsPPO, paramVarPPO = curve_fit(MM, repDF["SubConcen"],
-                                                       repDF["PPO activity"],
+                    subInhiCondi = repDF["PPO activity"] != "o"
+                    subConcen = repDF.loc[subInhiCondi, "SubConcen"]
+                    activity = repDF.loc[subInhiCondi, "PPO activity"]
+                    paramsPPO, paramVarPPO = curve_fit(MM, subConcen, activity,
                                                        bounds=(0, np.inf))
                     PPOcol = "PPO {0:d}".format(replicate)
                     VmaxDF.loc[sampleIndex, PPOcol] = paramsPPO[0]
@@ -979,8 +1079,10 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                     KmDF.loc[sampleIndex, PPOcol] = "can't fit"
 
                 try:  # fitting MM to PER
-                    paramsPER, paramVarPER = curve_fit(MM, repDF["SubConcen"],
-                                                       repDF["PER activity"],
+                    subInhiCondi = repDF[repDF["PER activity"] != "o"]
+                    subConcen = repDF.loc[subInhiCondi, "SubConcen"]
+                    activity = repDF.loc[subInhiCondi, "PER activity"]
+                    paramsPER, paramVarPER = curve_fit(MM, subConcen, activity,
                                                        bounds=(0, np.inf))
                     PERcol = "PER {0:d}".format(replicate)
                     VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
@@ -1174,14 +1276,6 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                 repData = sampleData[sampleData["Replicate"] == replicate]
                 repParam = sampleParams[sampleParams["Replicate"] == replicate]
 
-                # Generating substrate concentrations that will be used to
-                # estimate enzyme activity based on MM parameters
-                maxConcenInd = repData["SubConcen"].idxmax()
-                maxConcen = repData.loc[maxConcenInd, "SubConcen"]
-                minConcenInd = repData["SubConcen"].idxmin()
-                minConcen = repData.loc[minConcenInd, "SubConcen"]
-                Sregress = np.linspace(minConcen, maxConcen)
-
                 # Obtaining PPO parameters to check if PPO activity can be
                 # plotted
                 PPOparam = repParam[repParam["Enzyme"] == "PPO"]
@@ -1196,11 +1290,18 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                     py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
 
                     # Plotting PPO actual activities for this replicate
-                    py.plot("SubConcen", "PPO activity", "o-", data=repData,
-                            label="Actual values")
+                    subInhiCondi = ~repData["PPO activity"].isin(["o"])
+                    subConcen = repData.loc[subInhiCondi, "SubConcen"]
+                    activity = repData.loc[subInhiCondi, "PPO activity"]
+                    py.plot(subConcen, activity, "o-", label="Actual values")
 
                     # Estimating & plotting PPO activities based on parameters
                     # for this replicate
+                    maxActConcenInd = subConcen.idxmax()
+                    maxActConcen = subConcen[maxActConcenInd]
+                    minConcenInd = subConcen.idxmin()
+                    minConcen = subConcen[minConcenInd]
+                    Sregress = np.linspace(minConcen, maxActConcen)
                     VhatPPO = MM(Sregress, VmaxPPO, KmPPO)
                     py.plot(Sregress, VhatPPO, "-r", label="Michaelis-Menten")
                     py.legend()
@@ -1219,10 +1320,17 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                     py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
 
                     # Plotting actual PER activity
-                    py.plot("SubConcen", "PER activity", "o-", data=repData,
-                            label="Actual values")
+                    subInhiCondi = ~repData["PER activity"].isin(["o"])
+                    subConcen = repData.loc[subInhiCondi, "SubConcen"]
+                    activity = repData.loc[subInhiCondi, "PER activity"]
+                    py.plot(subConcen, activity, "o-", label="Actual values")
 
                     # Estimating and plotting PER activity based on parameters
+                    maxActConcenInd = subConcen.idxmax()
+                    maxActConcen = subConcen[maxActConcenInd]
+                    minConcenInd = subConcen.idxmin()
+                    minConcen = subConcen[minConcenInd]
+                    Sregress = np.linspace(minConcen, maxActConcen)
                     VhatPER = MM(Sregress, VmaxPER, KmPER)
                     py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
                     py.legend()
