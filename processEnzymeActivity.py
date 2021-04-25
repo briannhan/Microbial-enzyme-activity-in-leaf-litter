@@ -302,6 +302,6 @@ T5oxiData = ew.clean(T5processing, T5oxiData, "O")
 # Michaelis-Menten parameters
 T5pro1oxiFigs = unproFigs/"T5"/ezFigsFolders[1]/pro1FolderName
 T5oxiParams = ew.nonlinRegress(T5oxiData, "O", 5)
-# ew.plotRegress(T5oxiData, T5oxiParams, "O", 1, 5, T5pro1oxiFigs)
+ew.plotRegress(T5oxiData, T5oxiParams, "O", 1, 5, T5pro1oxiFigs)
 # %%
 print(datetime.now() - startTime)

@@ -1043,8 +1043,6 @@ def nonlinRegress(data, enzymeType, timepoint=None):
         # removing sample 47RRX because in T5, its oxidative enzyme activity
         # was assayed twice.
         samp47 = data[data["ID"] == "47RRX"]
-        samp47_190125 = samp47[samp47["Assay date"] == "190125"]
-        samp47_190222 = samp47[samp47["Assay date"] == "190222"]
         data = data[data["ID"] != "47RRX"]
     samples = data.groupby("ID")["ID"].count().index.tolist()
 
@@ -1116,7 +1114,6 @@ def nonlinRegress(data, enzymeType, timepoint=None):
     if enzymeType == "O" and timepoint == 5:
         dates = samp47.groupby("Assay date")["Assay date"].count().index
         dates = dates.tolist()
-        # sampleIndex = VmaxDF[VmaxDF["ID"] == "47RRX"].index
         sampleIndex = 0
         Vmax47DF = pd.DataFrame({"ID": ["47RRX"]})
         Km47DF = pd.DataFrame({"ID": ["47RRX"]})
@@ -1178,6 +1175,7 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                          value_name="Km")
         params47DF = pd.merge(left=Vmax47DF, right=Km47DF, how="inner",
                               on=["ID", "Enzyme"])
+        params47DF["Enzyme"] = params47DF["Enzyme"].str.split(" ")
         for index, row in params47DF.iterrows():
             enzymeList = row["Enzyme"]
             params47DF.loc[index, "Replicate"] = enzymeList[1]
@@ -1385,7 +1383,6 @@ def plotRegress(data, params, enzymeType, cleanInstance, timepoint,
     # If data is T5 oxidase, then this plots sample 47RRX
     if enzymeType == "O" and timepoint == 5:
         sampleParams = params[params["ID"] == "47RRX"]
-        print(sampleParams)
         dates = samp47.groupby("Assay date")["Assay date"].count().index
         dates = dates.tolist()
         for date in dates:
