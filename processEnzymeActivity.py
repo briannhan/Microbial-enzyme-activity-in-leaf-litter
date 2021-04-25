@@ -230,8 +230,7 @@ T0pro1hydroFigs = unproFigsT0/ezFigsFolders[0]/pro1FolderName
 
 # (1) Cleaning T0 oxidase off of negative activities and substrate inhibition
 T0oxiData = pd.read_excel(activityData, activitySheets[1])
-T0hydroKeys, T0oxiKeys = ew.cleanKeysDFs(T0processing)
-T0oxiData = ew.clean(T0oxiKeys, T0oxiData, "O")
+T0oxiData = ew.clean(T0processing, T0oxiData, "O")
 
 # (2) Plotting T0 oxidase actual data & estimated activities based on estimated
 # Michaelis-Menten parameters
@@ -248,14 +247,13 @@ T0oxiParams = ew.nonlinRegress(T0oxiData, "O")
 # (1) Cleaning T3 hydrolase off of negative activities & substrate inhibition
 T3hydroData = pd.read_excel(activityData, activitySheets[2])
 T3processing = pd.read_excel(processingTypes, processingSheets[1])
-T3hydroKeys, T3oxiKeys = ew.cleanKeysDFs(T3processing)
-T3hydroData = ew.clean(T3hydroKeys, T3hydroData, "H")
+T3hydroData = ew.clean(T3processing, T3hydroData, "H")
 
 # (2) Plotting T3 hydrolase actual data & estimated activities based on
 # estimated Michaelis-Menten parameters
-T3pro1oxiFigs = unproFigs/"T3"/ezFigsFolders[0]/pro1FolderName
-# T3hydroParams = ew.nonlinRegress(T3hydroData, "H")
-# ew.plotRegress(T3hydroData, T3hydroParams, "H", 1, 3, T3pro1oxiFigs)
+T3pro1hydroFigs = unproFigs/"T3"/ezFigsFolders[0]/pro1FolderName
+T3hydroParams = ew.nonlinRegress(T3hydroData, "H")
+# ew.plotRegress(T3hydroData, T3hydroParams, "H", 1, 3, T3pro1hydroFigs)
 # %%
 # Purpose: Obtain parameters for T3 oxidase
 # Tasks:
@@ -265,12 +263,45 @@ T3pro1oxiFigs = unproFigs/"T3"/ezFigsFolders[0]/pro1FolderName
 
 # (1) Cleaning T3 oxidase off of negative activities and substrate inhibition
 T3oxiData = pd.read_excel(activityData, activitySheets[3])
-T3oxiData = ew.clean(T3oxiKeys, T3oxiData, "O")
+T3oxiData = ew.clean(T3processing, T3oxiData, "O")
 
 # (2) Plotting T3 oxidase actual data & estimated activities based on estimated
 # Michaelis-Menten parameters
 T3pro1oxiFigs = unproFigs/"T3"/ezFigsFolders[1]/pro1FolderName
 T3oxiParams = ew.nonlinRegress(T3oxiData, "O")
 # ew.plotRegress(T3oxiData, T3oxiParams, "O", 1, 3, T3pro1oxiFigs)
+# ew.plotRegress(T3oxiData, T3oxiParams, "O", 1, 3)
+# %%
+# Purpose: Obtain parameters for T5 hydrolase
+# (1) Cleaning T5 hydrolase off of negative activities and substrate inhibition
+# (2) Plotting T5 hydrolase actual data & estimated activities based on
+# estimated Michaelis-Menten parameters
+
+# (1) Cleaning T5 hydrolase off of negative activities and substrate inhibition
+T5hydroData = pd.read_excel(activityData, activitySheets[4])
+T5processing = pd.read_excel(processingTypes, processingSheets[2])
+T5hydroData = ew.clean(T5processing, T5hydroData, "H")
+
+# (2) Plotting T5 hydrolase actual data & estimated activities based on
+# estimated Michaelis-Menten parameters
+T5pro1oxiFigs = unproFigs/"T5"/ezFigsFolders[0]/pro1FolderName
+T5hydroParams = ew.nonlinRegress(T5hydroData, "H")
+# ew.plotRegress(T5hydroData, T5hydroParams, "H", 1, 5, T5pro1oxiFigs)
+# %%
+# Purpose: Obtain parameters for T5 oxidase
+# Tasks:
+# (1) Cleaning T5 oxidase off of negative activities and substrate inhibition
+# (2) Plotting T5 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+
+# (1) Cleaning T5 oxidase off of negative activities and substrate inhibition
+T5oxiData = pd.read_excel(activityData, activitySheets[5])
+T5oxiData = ew.clean(T5processing, T5oxiData, "O")
+
+# (2) Plotting T5 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+T5pro1oxiFigs = unproFigs/"T5"/ezFigsFolders[1]/pro1FolderName
+T5oxiParams = ew.nonlinRegress(T5oxiData, "O", 5)
+# ew.plotRegress(T5oxiData, T5oxiParams, "O", 1, 5, T5pro1oxiFigs)
 # %%
 print(datetime.now() - startTime)

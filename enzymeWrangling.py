@@ -789,21 +789,29 @@ def cleanKeysDFs(processDF):
 
     """
     columns = processDF.columns.tolist()
+
     # The last column is called "Unnamed" as it does not have a named in the
     # original file. The following if statement checks to see if the user had
     # already removed it beforehand, and if the user had already done so, then
     # the list of column names is left unchanged, but if the user hadn't done
     # so, then this column will be removed.
     if "Unnamed" in columns[-1]:
+        extraCol = columns[-1]
         columns = columns[:-1]
+        hydroColsToDrop = columns[1:8]
+        oxiColsToDrop = columns[8:]
+        hydroColsToDrop.append(extraCol)
+        # print(hydroColsToDrop)
+        oxiColsToDrop.append(extraCol)
+        # print(oxiColsToDrop)
+    elif "Unnamed" not in columns[-1]:
+        hydroColsToDrop = columns[1:8]
+        oxiColsToDrop = columns[8:]
 
-    hydroCols = columns[0:8]
-    hydroEnzymes = hydroCols[1:]
-    oxidaseEnzymesNreplicates = columns[8:]
     hydroCleanDF = processDF.copy()
     oxiCleanDF = processDF.copy()  # haha
-    hydroCleanDF = hydroCleanDF.drop(columns=oxidaseEnzymesNreplicates)
-    oxiCleanDF = oxiCleanDF.drop(columns=hydroEnzymes)
+    hydroCleanDF = hydroCleanDF.drop(labels=oxiColsToDrop, axis=1)
+    oxiCleanDF = oxiCleanDF.drop(labels=hydroColsToDrop, axis=1)
     return hydroCleanDF, oxiCleanDF
 
 
@@ -893,17 +901,17 @@ def cleanOxi(processDF, data):
     # Removing substrate inhibition
     hydroKeys, oxiKeys = cleanKeysDFs(processDF)
     oxiKeysColumns = oxiKeys.columns.tolist()
+    keys = oxiKeysColumns[1:]
     for index, row in oxiKeys.iterrows():
         sampleName = row["ID"]
         sampleData = data[data["ID"] == sampleName]
-        print(sampleName)
-        for enzymeRep in oxiKeysColumns:
+        for enzymeRep in keys:
             enzymeRepKey = row[enzymeRep]
-            print(enzymeRep, enzymeRepKey)
             if enzymeRepKey == "o":
                 enzymeRepList = enzymeRep.split(" ")
                 enzyme = enzymeRepList[0]
                 keyReplicate = enzymeRepList[-1]
+                keyReplicate = int(keyReplicate)
 
                 # Accounting for T5 47RRX, which was assayed twice for oxidase
                 if keyReplicate >= 3:
@@ -918,9 +926,8 @@ def cleanOxi(processDF, data):
                 elif enzyme == "PER":
                     maxActInd = repDF["PER activity"].idxmax()
                 maxActConcen = repDF.loc[maxActInd, "SubConcen"]
-                # subInhiInd = repDF[repDF["SubConcen"] > maxActConcen].index
-                subInhiInd = repDF["SubConcen"] > maxActConcen
-                print(subInhiInd)
+                subInhiInd = repDF[repDF["SubConcen"] > maxActConcen].index
+                # subInhiInd = repDF["SubConcen"] > maxActConcen
                 if enzyme == "PPO":
                     data.loc[subInhiInd, "PPO activity"] = "o"
                 elif enzyme == "PER":
@@ -1107,9 +1114,13 @@ def nonlinRegress(data, enzymeType, timepoint=None):
 
     # Performing nonlinear regression for T5 oxidase sample 47RRX
     if enzymeType == "O" and timepoint == 5:
-        samp47frames = [samp47_190125, samp47_190222]
-        sampleIndex = VmaxDF[VmaxDF["ID"] == "47RRX"].index
-        for sampleDF in samp47frames:
+        dates = samp47.groupby("Assay date")["Assay date"].count().index
+        dates = dates.tolist()
+        # sampleIndex = VmaxDF[VmaxDF["ID"] == "47RRX"].index
+        sampleIndex = 0
+        Vmax47DF = pd.DataFrame({"ID": ["47RRX"]})
+        Km47DF = pd.DataFrame({"ID": ["47RRX"]})
+        for date in dates:
             # Following for loop loops through the replicates for sample 47RRX.
             # The way that the parameters dataframes and the calculated enzyme
             # activities dataframe record replicates is different. In the
@@ -1117,16 +1128,20 @@ def nonlinRegress(data, enzymeType, timepoint=None):
             # either 1 or 2 even if this sample was assayed twice. In the
             # parameters dataframes, I intend the replicates to be a range of
             # integers with the following mathematical notation [1, 4].
+            sampleDF = samp47[samp47["Assay date"] == date]
             for i in range(2):
                 replicateData = i + 1  # Replicate recorded on the dataframe
                 # of calculated enzyme activities
+                print("replicateData:", replicateData)
 
                 # Following if statements calculates replicate for the
                 # parameter dataframes
-                if sampleDF == samp47_190125:
+                if date == "190125":
                     repPar = i + 1
-                elif sampleDF == samp47_190222:
+                    # print("repPar:", repPar)
+                elif date == "190222":
                     repPar = i + 3
+                    print(repPar)
 
                 repDF = sampleDF[sampleDF["Replicate"] == replicateData]
                 repDF = repDF.sort_values(by="SubConcen")
@@ -1135,26 +1150,38 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                                                        repDF["PPO activity"],
                                                        bounds=(0, np.inf))
                     PPOcol = "PPO {0:d}".format(repPar)
-                    VmaxDF.loc[sampleIndex, PPOcol] = paramsPPO[0]
-                    KmDF.loc[sampleIndex, PPOcol] = paramsPPO[1]
+                    Vmax47DF.loc[sampleIndex, PPOcol] = paramsPPO[0]
+                    Km47DF.loc[sampleIndex, PPOcol] = paramsPPO[1]
                 except RuntimeError:
                     print("Can't fit {0:}, PPO replicate {1:}".format(sample,
                                                                       repPar))
-                    VmaxDF.loc[sampleIndex, PPOcol] = "can't fit"
-                    KmDF.loc[sampleIndex, PPOcol] = "can't fit"
+                    Vmax47DF.loc[sampleIndex, PPOcol] = "can't fit"
+                    Km47DF.loc[sampleIndex, PPOcol] = "can't fit"
 
                 try:  # fitting MM to PER activity
                     paramsPER, paramVarPER = curve_fit(MM, repDF["SubConcen"],
                                                        repDF["PER activity"],
                                                        bounds=(0, np.inf))
                     PERcol = "PER {0:d}".format(repPar)
-                    VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
-                    KmDF.loc[sampleIndex, PERcol] = paramsPER[1]
+                    Vmax47DF.loc[sampleIndex, PERcol] = paramsPER[0]
+                    Km47DF.loc[sampleIndex, PERcol] = paramsPER[1]
                 except RuntimeError:
                     print("Can't fit {0:}, PPO replicate {1:}".format(sample,
                                                                       repPar))
-                    VmaxDF.loc[sampleIndex, PERcol] = "can't fit"
-                    KmDF.loc[sampleIndex, PERcol] = "can't fit"
+                    Vmax47DF.loc[sampleIndex, PERcol] = "can't fit"
+                    Km47DF.loc[sampleIndex, PERcol] = "can't fit"
+        # VmaxDF = pd.concat([VmaxDF, Vmax47DF], join="inner")
+        # KmDF = pd.concat([KmDF, Km47DF], join="inner")
+        Vmax47DF = pd.melt(Vmax47DF, id_vars="ID", var_name="Enzyme",
+                           value_name="Vmax")
+        Km47DF = pd.melt(Km47DF, id_vars="ID", var_name="Enzyme",
+                         value_name="Km")
+        params47DF = pd.merge(left=Vmax47DF, right=Km47DF, how="inner",
+                              on=["ID", "Enzyme"])
+        for index, row in params47DF.iterrows():
+            enzymeList = row["Enzyme"]
+            params47DF.loc[index, "Replicate"] = enzymeList[1]
+            params47DF.loc[index, "Enzyme"] = enzymeList[0]
 
     # Reformatting eventual hydrolase parameters dataframe to have columns ID,
     # Enzyme, Vmax, and Km. Oxidase dataframe is also reformatted like this,
@@ -1176,12 +1203,14 @@ def nonlinRegress(data, enzymeType, timepoint=None):
             enzymeList = row["Enzyme"]
             paramsDF.loc[index, "Replicate"] = enzymeList[1]
             paramsDF.loc[index, "Enzyme"] = enzymeList[0]
+        if timepoint == 5:
+            paramsDF = pd.concat([paramsDF, params47DF], join="inner")
         paramsDF["Replicate"] = paramsDF["Replicate"].astype(int)
     paramsDF = paramsDF.sort_values(by=["ID"])
     return paramsDF
 
 
-def plotRegress(data, params, enzymeType, processInstance, timepoint,
+def plotRegress(data, params, enzymeType, cleanInstance, timepoint,
                 saveFolder=None):
     """
     Plots the cleaned enzyme activity after removing substrate inhibition and
@@ -1201,7 +1230,7 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
         Values are either "H" for hydrolases or "O" for oxidases. Dataframes
         of hydrolase and oxidase activity were formatted differently, so they
         will be treated differently in this function
-    processInstance : int
+    cleanInstance : int
         The number of times that the calculated enzyme activity had been
         processed/cleaned. The 1st time that it is cleaned includes the simple
         replacement of negative activity values with 0 and removing substrate
@@ -1245,7 +1274,7 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
         date = date.tolist()[0]
         figTitle = "{0}, T{1}, {2}, processed {3}".format(sample, timepoint,
                                                           date,
-                                                          processInstance)
+                                                          cleanInstance)
         py.figure(figTitle, (25, 15))
 
         # If data and parameters provided are for hydrolase, then this plots
@@ -1356,26 +1385,28 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
     # If data is T5 oxidase, then this plots sample 47RRX
     if enzymeType == "O" and timepoint == 5:
         sampleParams = params[params["ID"] == "47RRX"]
-        dates = samp47.groupby("Assay date")["Assay date"].count.index.tolist()
+        print(sampleParams)
+        dates = samp47.groupby("Assay date")["Assay date"].count().index
+        dates = dates.tolist()
         for date in dates:
             dateData = samp47[samp47["Assay date"] == date]
-            figTitle = "{0}, T{2}, {1}, processed {3}".format(sample, date,
-                                                              timepoint,
-                                                              processInstance)
+            figTitle = "47RRX, T{1}, {2}, processed {0}".format(cleanInstance,
+                                                                timepoint,
+                                                                date)
 
             # Obtaining parameters for a specific date. For a specific date,
             # there is a set of parameter each for 2 enzymes and 2 replicates,
             # so for a specific date, there are 4 sets of parameters in total.
             if date == "190125":
-                dateParams = sampleParams[sampleParams["Replicates"] <= 2]
+                dateParams = sampleParams[sampleParams["Replicate"] <= 2]
             elif date == "190222":
-                dateParams = sampleParams[sampleParams["Replicates"] >= 3]
+                dateParams = sampleParams[sampleParams["Replicate"] >= 3]
             py.figure(figTitle, (25, 15))
 
             # Obtaining replicates from dateParams
-            replicates = dateParams.groupby("Replicates")["Replicates"].count
+            replicates = dateParams.groupby("Replicate")["Replicate"].count()
             replicates = replicates.index.tolist()
-            for index, replicate in replicates.iteritems():
+            for replicate in replicates:
                 # Since in the T5 oxidase calculated enzyme activities data
                 # frame, the replicates are still put as 1 and 2 for sample
                 # 47RRX when, respectively, they are 3 and 4 in the parameters
