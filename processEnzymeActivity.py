@@ -29,7 +29,7 @@ startTime = datetime.now()
 # calculated enzyme activity and (2) Excel file that details the errors &
 # modifications I should make of the unprocessed enzyme activity data.
 cwd = Path(os.getcwd())
-cwdDirs = os.listdir(cwd)
+cwdDirsNfiles = os.listdir(cwd)
 unprocessedGraphsPath = cwd/"Unprocessed activity graphs"
 unprocessedGraphsContents = os.listdir(unprocessedGraphsPath)
 processingTypesPath = unprocessedGraphsPath/"Samples with errors.xlsx"
@@ -72,7 +72,7 @@ T0hydroData.loc[T0hydroProcessInd, "Activity"] = 0
 # enzyme activity
 samples = T0processing["ID"].tolist()
 oxiErrorLabels = ["PPO rep 1", "PPO rep 2",
-                  "PER rep 1", "PER rep 2",]
+                  "PER rep 1", "PER rep 2"]
 T0hydroProcessing = T0processing.drop(labels=oxiErrorLabels, axis=1)
 hydroEnzymes = T0hydroProcessing.columns.tolist()[1:]
 initialShape = T0hydroData.shape
@@ -205,7 +205,72 @@ and reworking this code in order to apply it to both hydrolytic and oxidative
 enzymes and to oxidative enzymes in T5, in which sample 47 was assayed twice.
 """
 # %%
-# Purpose: Obtain Michaelis-Menten parameters for T0 hydrolase data
-T0params = ew.nonlinRegress(T0hydroData, "H")
+# Purpose: Obtain Michaelis-Menten parameters for T0 hydrolase data and
+# plotting regression parameters & actual activity for T0 hydrolase
+T0hydroParams = ew.nonlinRegress(T0hydroData, "H")
+
+# Obtaining folder names to save figures of actual data (cleaned off of
+# substrate inhibition & negative activity the first time) and regression
+unproFigs = cwd/'Unprocessed activity graphs'
+unproFigsTP = os.listdir(unproFigs)
+unproFigsT0 = unproFigs/"T0"
+unproFigsT0folders = os.listdir(unproFigsT0)
+ezFigsFolders = ['Hydrolytic enzymes', 'Oxidative enzymes']
+pro1FolderName = "Processed 1"
+
+# Plotting actual data & regression
+T0pro1hydroFigs = unproFigsT0/ezFigsFolders[0]/pro1FolderName
+# ew.plotRegress(T0hydroData, T0hydroParams, "H", 1, 0, T0pro1hydroFigs)
+# %%
+# Purpose: Obtain parameters for T0 oxidase data
+# Tasks:
+# (1) Cleaning T0 oxidase off of negative activities and substrate inhibition
+# (2) Plotting T0 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+
+# (1) Cleaning T0 oxidase off of negative activities and substrate inhibition
+T0oxiData = pd.read_excel(activityData, activitySheets[1])
+T0hydroKeys, T0oxiKeys = ew.cleanKeysDFs(T0processing)
+T0oxiData = ew.clean(T0oxiKeys, T0oxiData, "O")
+
+# (2) Plotting T0 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+T0pro1oxiFigs = unproFigsT0/ezFigsFolders[1]/pro1FolderName
+T0oxiParams = ew.nonlinRegress(T0oxiData, "O")
+# ew.plotRegress(T0oxiData, T0oxiParams, "O", 1, 0, T0pro1oxiFigs)
+# %%
+# Purpose: Obtain parameters for T3 hydrolase
+# Tasks:
+# (1) Cleaning T3 hydrolase off of negative activities & substrate inhibition
+# (2) Plotting T3 hydrolase actual data & estimated activities based on
+# estimated Michaelis-Menten parameters
+
+# (1) Cleaning T3 hydrolase off of negative activities & substrate inhibition
+T3hydroData = pd.read_excel(activityData, activitySheets[2])
+T3processing = pd.read_excel(processingTypes, processingSheets[1])
+T3hydroKeys, T3oxiKeys = ew.cleanKeysDFs(T3processing)
+T3hydroData = ew.clean(T3hydroKeys, T3hydroData, "H")
+
+# (2) Plotting T3 hydrolase actual data & estimated activities based on
+# estimated Michaelis-Menten parameters
+T3pro1oxiFigs = unproFigs/"T3"/ezFigsFolders[0]/pro1FolderName
+# T3hydroParams = ew.nonlinRegress(T3hydroData, "H")
+# ew.plotRegress(T3hydroData, T3hydroParams, "H", 1, 3, T3pro1oxiFigs)
+# %%
+# Purpose: Obtain parameters for T3 oxidase
+# Tasks:
+# (1) Cleaning T3 oxidase off of negative activities and substrate inhibition
+# (2) Plotting T3 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+
+# (1) Cleaning T3 oxidase off of negative activities and substrate inhibition
+T3oxiData = pd.read_excel(activityData, activitySheets[3])
+T3oxiData = ew.clean(T3oxiKeys, T3oxiData, "O")
+
+# (2) Plotting T3 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+T3pro1oxiFigs = unproFigs/"T3"/ezFigsFolders[1]/pro1FolderName
+T3oxiParams = ew.nonlinRegress(T3oxiData, "O")
+# ew.plotRegress(T3oxiData, T3oxiParams, "O", 1, 3, T3pro1oxiFigs)
 # %%
 print(datetime.now() - startTime)

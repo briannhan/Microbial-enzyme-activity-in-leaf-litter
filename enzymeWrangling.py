@@ -789,12 +789,17 @@ def cleanKeysDFs(processDF):
 
     """
     columns = processDF.columns.tolist()
-    # The last column is called "Unnamed" as in the original Excel file, it
-    # does not have a name. This column will be removed
-    columns = columns[:-1]
+    # The last column is called "Unnamed" as it does not have a named in the
+    # original file. The following if statement checks to see if the user had
+    # already removed it beforehand, and if the user had already done so, then
+    # the list of column names is left unchanged, but if the user hadn't done
+    # so, then this column will be removed.
+    if "Unnamed" in columns[-1]:
+        columns = columns[:-1]
 
-    hydroEnzymes = columns[0:7]
-    oxidaseEnzymesNreplicates = columns[7:]
+    hydroCols = columns[0:8]
+    hydroEnzymes = hydroCols[1:]
+    oxidaseEnzymesNreplicates = columns[8:]
     hydroCleanDF = processDF.copy()
     oxiCleanDF = processDF.copy()  # haha
     hydroCleanDF = hydroCleanDF.drop(columns=oxidaseEnzymesNreplicates)
@@ -891,8 +896,11 @@ def cleanOxi(processDF, data):
     for index, row in oxiKeys.iterrows():
         sampleName = row["ID"]
         sampleData = data[data["ID"] == sampleName]
+        print(sampleName)
         for enzymeRep in oxiKeysColumns:
-            if row[enzymeRep] == "o":
+            enzymeRepKey = row[enzymeRep]
+            print(enzymeRep, enzymeRepKey)
+            if enzymeRepKey == "o":
                 enzymeRepList = enzymeRep.split(" ")
                 enzyme = enzymeRepList[0]
                 keyReplicate = enzymeRepList[-1]
@@ -910,7 +918,9 @@ def cleanOxi(processDF, data):
                 elif enzyme == "PER":
                     maxActInd = repDF["PER activity"].idxmax()
                 maxActConcen = repDF.loc[maxActInd, "SubConcen"]
-                subInhiInd = repDF[repDF["SubConcen"] > maxActConcen].index
+                # subInhiInd = repDF[repDF["SubConcen"] > maxActConcen].index
+                subInhiInd = repDF["SubConcen"] > maxActConcen
+                print(subInhiInd)
                 if enzyme == "PPO":
                     data.loc[subInhiInd, "PPO activity"] = "o"
                 elif enzyme == "PER":
@@ -1064,7 +1074,8 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                 repDF = sampleDF[sampleDF["Replicate"] == replicate]
                 repDF = repDF.sort_values(by="SubConcen")
                 try:  # fitting MM to PPO
-                    subInhiCondi = repDF["PPO activity"] != "o"
+                    # subInhiCondi = repDF["PPO activity"] != "o"
+                    subInhiCondi = ~repDF["PPO activity"].isin(["o"])
                     subConcen = repDF.loc[subInhiCondi, "SubConcen"]
                     activity = repDF.loc[subInhiCondi, "PPO activity"]
                     paramsPPO, paramVarPPO = curve_fit(MM, subConcen, activity,
@@ -1079,14 +1090,15 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                     KmDF.loc[sampleIndex, PPOcol] = "can't fit"
 
                 try:  # fitting MM to PER
-                    subInhiCondi = repDF[repDF["PER activity"] != "o"]
+                    # subInhiCondi = repDF[repDF["PER activity"] != "o"]
+                    subInhiCondi = ~repDF["PER activity"].isin(["o"])
                     subConcen = repDF.loc[subInhiCondi, "SubConcen"]
                     activity = repDF.loc[subInhiCondi, "PER activity"]
                     paramsPER, paramVarPER = curve_fit(MM, subConcen, activity,
                                                        bounds=(0, np.inf))
                     PERcol = "PER {0:d}".format(replicate)
                     VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
-                    KmDF.loc[sampleIndex, PERcol] = paramVarPER[1]
+                    KmDF.loc[sampleIndex, PERcol] = paramsPER[1]
                 except RuntimeError:
                     print("Can't fit {1}, PER replicate {0}".format(replicate,
                                                                     sample))
@@ -1137,7 +1149,7 @@ def nonlinRegress(data, enzymeType, timepoint=None):
                                                        bounds=(0, np.inf))
                     PERcol = "PER {0:d}".format(repPar)
                     VmaxDF.loc[sampleIndex, PERcol] = paramsPER[0]
-                    KmDF.loc[sampleIndex, PERcol] = paramVarPER[1]
+                    KmDF.loc[sampleIndex, PERcol] = paramsPER[1]
                 except RuntimeError:
                     print("Can't fit {0:}, PPO replicate {1:}".format(sample,
                                                                       repPar))
@@ -1164,6 +1176,7 @@ def nonlinRegress(data, enzymeType, timepoint=None):
             enzymeList = row["Enzyme"]
             paramsDF.loc[index, "Replicate"] = enzymeList[1]
             paramsDF.loc[index, "Enzyme"] = enzymeList[0]
+        paramsDF["Replicate"] = paramsDF["Replicate"].astype(int)
     paramsDF = paramsDF.sort_values(by=["ID"])
     return paramsDF
 
@@ -1214,8 +1227,8 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
         data = data[data["ID"] != "47RRX"]
     # Obtaining hydrolase enzyme names if data is of hydrolase
     elif enzymeType == "H":
-        hydroEnzymes = data.groupby("Enzyme")["Enzyme"].count.index.tolist()
-    samples = data.groupby("ID")["ID"].count.index.tolist()
+        hydroEnzymes = data.groupby("Enzyme")["Enzyme"].count().index.tolist()
+    samples = data.groupby("ID")["ID"].count().index.tolist()
 
     # Just in case the saveFolder is provided as an argument but isn't a Path
     # object
@@ -1228,7 +1241,7 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
     for sample in samples:
         sampleData = data[data["ID"] == sample]
         sampleParams = params[params["ID"] == sample]
-        date = sampleData.groupby("Assay date")["Assay date"].count.index
+        date = sampleData.groupby("Assay date")["Assay date"].count().index
         date = date.tolist()[0]
         figTitle = "{0}, T{1}, {2}, processed {3}".format(sample, timepoint,
                                                           date,
@@ -1241,11 +1254,11 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
             for i in range(len(hydroEnzymes)):
                 enzyme = hydroEnzymes[i]
                 paramValues = sampleParams[sampleParams["Enzyme"] == enzyme]
-                VmaxHydro = paramValues["Vmax"]
-                KmHydro = paramValues["Km"]
+                VmaxHydro = paramValues["Vmax"].tolist()[0]
+                KmHydro = paramValues["Km"].tolist()[0]
                 if VmaxHydro != "can't fit":
                     # Creating subplot for this enzyme
-                    py.subplot(2, 3, i + 1)
+                    py.subplot(2, 4, i + 1)
                     py.title(enzyme)
                     py.xlabel("Substrate concentration (micromolar)")
                     py.ylabel("Normalized enzyme activity (micromole/[g*hr])")
@@ -1279,8 +1292,8 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                 # Obtaining PPO parameters to check if PPO activity can be
                 # plotted
                 PPOparam = repParam[repParam["Enzyme"] == "PPO"]
-                VmaxPPO = PPOparam["Vmax"]
-                KmPPO = PPOparam["Km"]
+                VmaxPPO = PPOparam["Vmax"].tolist()[0]
+                KmPPO = PPOparam["Km"].tolist()[0]
                 if VmaxPPO != "can't fit":
                     # Creating PPO subplot
                     py.subplot(2, 2, (i*2) + 1)
@@ -1309,8 +1322,8 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                 # Obtaining PER parameters to check if PER activity can be
                 # plotted
                 PERparam = repParam[repParam["Enzyme"] == "PER"]
-                VmaxPER = PERparam["Vmax"]
-                KmPER = PERparam["Km"]
+                VmaxPER = PERparam["Vmax"].tolist()[0]
+                KmPER = PERparam["Km"].tolist()[0]
                 if VmaxPER != "can't fit":
                     # Creating PER subplot
                     py.subplot(2, 2, (i*2) + 2)
@@ -1337,7 +1350,7 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
 
         # Saving figure if the user intentionally provided a folder to save
         if saveFolder is not None:
-            savePath = saveFolder/figTitle/".png"
+            savePath = saveFolder/figTitle
             py.savefig(savePath)
 
     # If data is T5 oxidase, then this plots sample 47RRX
@@ -1399,8 +1412,8 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                 # Obtaining PPO parameters for this replicate to check if
                 # PPO actual & estimated activities can be plotted
                 PPOparam = repParam[repParam["Enzyme"] == "PPO"]
-                VmaxPPO = PPOparam["Vmax"]
-                KmPPO = PPOparam["Km"]
+                VmaxPPO = PPOparam["Vmax"].tolist()[0]
+                KmPPO = PPOparam["Km"].tolist()[0]
                 if VmaxPPO != "can't fit":
                     # Creating subplot for PPO
                     py.subplot(2, 2, PPOpos)
@@ -1422,8 +1435,8 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                 # activity can be estimated and actual & estimated activity
                 # can be plotted.
                 PERparam = repParam[repParam["Enzyme"] == "PER"]
-                VmaxPER = PERparam["Vmax"]
-                KmPER = PERparam["Km"]
+                VmaxPER = PERparam["Vmax"].tolist()[0]
+                KmPER = PERparam["Km"].tolist()[0]
                 if VmaxPER != "can't fit":
                     # Creating PER subplot
                     py.subplot(2, 2, PERpos)
@@ -1441,6 +1454,6 @@ def plotRegress(data, params, enzymeType, processInstance, timepoint,
                     py.plot(Sregress, VhatPER, "-r", label="Michaelis-Menten")
                     py.legend()
             if saveFolder is not None:
-                savePath = saveFolder/figTitle/".png"
+                savePath = saveFolder/figTitle
                 py.savefig(savePath)
     return
