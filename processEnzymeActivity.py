@@ -17,6 +17,7 @@ constant), and enzyme concentration are all positive.
 """
 import os
 import pandas as pd
+from pandas import ExcelWriter
 from pathlib import Path
 from datetime import datetime
 import numpy as np
@@ -284,9 +285,9 @@ T5hydroData = ew.clean(T5processing, T5hydroData, "H")
 
 # (2) Plotting T5 hydrolase actual data & estimated activities based on
 # estimated Michaelis-Menten parameters
-T5pro1oxiFigs = unproFigs/"T5"/ezFigsFolders[0]/pro1FolderName
+T5pro1hydroFigs = unproFigs/"T5"/ezFigsFolders[0]/pro1FolderName
 T5hydroParams = ew.nonlinRegress(T5hydroData, "H")
-# ew.plotRegress(T5hydroData, T5hydroParams, "H", 1, 5, T5pro1oxiFigs)
+# ew.plotRegress(T5hydroData, T5hydroParams, "H", 1, 5, T5pro1hydroFigs)
 # %%
 # Purpose: Obtain parameters for T5 oxidase
 # Tasks:
@@ -302,6 +303,117 @@ T5oxiData = ew.clean(T5processing, T5oxiData, "O")
 # Michaelis-Menten parameters
 T5pro1oxiFigs = unproFigs/"T5"/ezFigsFolders[1]/pro1FolderName
 T5oxiParams = ew.nonlinRegress(T5oxiData, "O", 5)
-ew.plotRegress(T5oxiData, T5oxiParams, "O", 1, 5, T5pro1oxiFigs)
+# ew.plotRegress(T5oxiData, T5oxiParams, "O", 1, 5, T5pro1oxiFigs)
+# %%
+# Purpose: Obtain parameters for T6 hydrolase
+# (1) Cleaning T6 hydrolase off of negative activities and substrate inhibition
+# (2) Plotting T6 hydrolase actual data & estimated activities based on
+# estimated Michaelis-Menten parameters
+
+# (1) Cleaning T6 hydrolase off of negative activities and substrate inhibition
+T6hydroData = pd.read_excel(activityData, activitySheets[6])
+T6processing = pd.read_excel(processingTypes, processingSheets[3])
+T6hydroData = ew.clean(T6processing, T6hydroData, "H")
+
+# (2) Plotting T6 hydrolase actual data & estimated activities based on
+# estimated Michaelis-Menten parameters
+T6pro1hydroFigs = unproFigs/"T6"/ezFigsFolders[0]/pro1FolderName
+T6hydroParams = ew.nonlinRegress(T6hydroData, "H")
+# ew.plotRegress(T6hydroData, T6hydroParams, "H", 1, 6, T6pro1hydroFigs)
+# %%
+# Purpose: Obtain parameters for T6 oxidase
+# Tasks:
+# (1) Cleaning T6 oxidase off of negative activities and substrate inhibition
+# (2) Plotting T6 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+
+# (1) Cleaning T6 oxidase off of negative activities and substrate inhibition
+T6oxiData = pd.read_excel(activityData, activitySheets[7])
+T6oxiData = ew.clean(T6processing, T6oxiData, "O")
+
+# (2) Plotting T5 oxidase actual data & estimated activities based on estimated
+# Michaelis-Menten parameters
+T6pro1oxiFigs = unproFigs/"T6"/ezFigsFolders[1]/pro1FolderName
+T6oxiParams = ew.nonlinRegress(T6oxiData, "O", 6)
+# ew.plotRegress(T6oxiData, T6oxiParams, "O", 1, 6, T6pro1oxiFigs)
+'''And now I've gotten all the parameters for every enzyme and cleaned the data
+off of substrate inhibition and negative activities. I'm also going to drop
+the columns of peroxidase activity as they are all negative, so the only
+oxidase activity that I will have is polyphenol oxidase. I believe that this is
+good enough, so now I'm gonna drop the peroxidase activity and export the
+parameters and the cleaned enzyme activity.
+'''
+# %%
+# Purpose: Finish cleaning oxidase activities and export cleaned activities
+# and parameters
+# Tasks:
+# (1) Drop peroxidase columns and rows of PPO substrate inhibition off of
+# dataframes of oxidase activity (only 1 sample in T3)
+# (2) Drop peroxidase parameters
+# (3) Make treatment dataframe to eventually add treatments to parameter
+# dataframes
+# (4) Merge parameter dataframes into a single dataframe containing additional
+# columns of timepoints, replicates, and treatments (vegetation & precip)
+# (5) Export cleaned enzyme activity and all enzyme parameters (except PER)
+
+# (1) Drop peroxidase columns and rows of PPO substrate inhibition off of
+# dataframes of oxidase activity (only 1 sample in T3)
+T0oxiData = T0oxiData.drop(columns="PER activity")
+T3oxiData = T3oxiData.drop(columns="PER activity")
+T3oxiData = T3oxiData[T3oxiData["PPO activity"] != "o"]
+T5oxiData = T5oxiData.drop(columns="PER activity")
+T6oxiData = T6oxiData.drop(columns="PER activity")
+
+# (2) Drop peroxidase parameters
+T0oxiParams = T0oxiParams[T0oxiParams["Enzyme"] != "PER"]
+T3oxiParams = T3oxiParams[T3oxiParams["Enzyme"] != "PER"]
+T5oxiParams = T5oxiParams[T5oxiParams["Enzyme"] != "PER"]
+T6oxiParams = T6oxiParams[T6oxiParams["Enzyme"] != "PER"]
+
+# (3) Make treatment dataframe to eventually add treatments to parameter
+# dataframes
+treatmentDFcols = ["ID", "Vegetation", "Precip"]
+treatmentDF = T0hydroData.copy()
+treatmentColsToDrop = []
+for column in T0hydroCols:
+    if column not in treatmentDFcols:
+        treatmentColsToDrop.append(column)
+treatmentDF = treatmentDF.drop(columns=treatmentColsToDrop)
+treatmentDF = treatmentDF.drop_duplicates(subset="ID")
+
+# (4) Merge parameter dataframes into a single dataframe containing additional
+# columns of timepoints, replicates, and treatments (vegetation & precip)
+T0params = pd.merge(T0hydroParams, T0oxiParams, how="outer")
+T0params["Time point"] = 0
+T3params = pd.merge(T3hydroParams, T3oxiParams, how="outer")
+T3params["Time point"] = 3
+T5params = pd.merge(T5hydroParams, T5oxiParams, how="outer")
+T5params["Time point"] = 5
+T6params = pd.merge(T6hydroParams, T6oxiParams, how="outer")
+T6params["Time point"] = 6
+paramDFs = [T0params, T3params, T5params, T6params]
+parameters = pd.concat(paramDFs)
+parameters = pd.merge(parameters, treatmentDF, on="ID")
+orderedParamCols = ["Time point", "ID", "Vegetation", "Precip", "Enzyme",
+                    "Replicate", "Vmax", "Km"]
+parameters = parameters.reindex(columns=orderedParamCols, copy=True)
+
+# (5) Export cleaned enzyme activity and all enzyme parameters (except PER)
+activityFolderPath = cwd/'Enzyme activity data'
+cleanedActivityPath = activityFolderPath/"Enzyme activity - processed 1.xlsx"
+cleanedActivityFrames = [T0hydroData, T0oxiData, T3hydroData, T3oxiData,
+                         T5hydroData, T5oxiData, T6hydroData, T6oxiData]
+activityWriter = ExcelWriter(cleanedActivityPath)
+
+parametersPath = activityFolderPath/"Parameters.xlsx"
+paramsWriter = ExcelWriter(parametersPath)
+with activityWriter:
+    for i in range(8):
+        sheet = activitySheets[i]
+        activity = cleanedActivityFrames[i]
+        activity.to_excel(activityWriter, sheet_name=sheet, index=False)
+
+with paramsWriter:
+    parameters.to_excel(paramsWriter, index=False)
 # %%
 print(datetime.now() - startTime)
