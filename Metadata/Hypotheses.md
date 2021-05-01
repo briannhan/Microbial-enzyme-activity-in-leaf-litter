@@ -18,26 +18,26 @@ Prediction 1: As investment in enzymes decrease (indicated by a decrease in Vmax
 ## Question 2: How does litter chemistry influence enzyme activity under ambient precipitation?
 This question is answered by 2 complementary hypotheses. These hypotheses do not contradict each other, with the second one describing the relationship between particular substrates (lignin vs other substrates).
 
-Hypothesis 2a: Activity of a particular enzyme increases when exposed to litter with a higher proportion of its target substrate (can be tested for carbon and protein, but not chitin or organic phosphorus).
+Hypothesis 2: Activity of a particular enzyme increases when exposed to litter with a higher proportion of its target substrate (can be tested for carbon and protein, but not chitin or organic phosphorus).
 
-Prediction 2a: When exposed to litter with a higher proportion of a specific substrate compared to litter with a lower proportion, the enzyme that is specific to that substrate will increase in concentration (indicated by increases in Vmax). If hypothesis 1 is true, then this should also lead to more reaction products (indicated by increases in Km).
+Prediction 2: When exposed to litter with a higher proportion of a specific substrate compared to litter with a lower proportion, the enzyme that is specific to that substrate will increase in concentration (indicated by increases in Vmax). If hypothesis 1 is true, then this should also lead to more reaction products (indicated by increases in Km).
 
 
 
-Hypothesis 2b: Lignin is a noncompetitive inhibitor of hydrolytic enzymes with high lignin proportions inactivating hydrolytic enzymes (Sewalt et al. 1997; Senior et al. 1991).
+Hypothesis 3: Lignin is a noncompetitive inhibitor of hydrolytic enzymes with high lignin proportions inactivating hydrolytic enzymes (Sewalt et al. 1997; Senior et al. 1991).
 
-Prediction 2b: Litter with high lignin proportion will see an increase in concentrations of oxidative enzyme concentrations while hydrolytic enzyme activity will decrease. Noncompetitive inhibition entails the binding of an inhibitor to an enzyme and removing the enzyme from the reaction. Therefore, decreases in hydrolytic enzyme activity is caused by a decreased in concentrations of hydrolytic enzymes (which decreases Vmax of hydrolytic enzymes). If hypothesis 1 is true, then Km of hydrolytic enzymes in high-lignin litter will also decrease due to the low amount of enzymes to produce products.
+Prediction 3: Litter with high lignin proportion will see an increase in concentrations of oxidative enzyme concentrations while hydrolytic enzyme activity will decrease. Noncompetitive inhibition entails the binding of an inhibitor to an enzyme and removing the enzyme from the reaction. Therefore, decreases in hydrolytic enzyme activity is caused by a decreased in concentrations of hydrolytic enzymes (which decreases Vmax of hydrolytic enzymes). If hypothesis 1 is true, then Km of hydrolytic enzymes in high-lignin litter will also decrease due to the low amount of enzymes to produce products.
 
 ## Question 3: How does drought and litter chemistry interact to affect enzyme activity?
-Hypothesis 3a: Following the Y-A-S framework, there is a clear tradeoff in energy, carbon, and other nutrients spent between resource acquisition traits and stress tolerance traits when microbes are in environments with high resources.
+Hypothesis 4: Following the Y-A-S framework, there is a clear tradeoff in energy, carbon, and other nutrients spent between resource acquisition traits and stress tolerance traits when microbes are in environments with high resources.
 
-Prediction 3a: This tradeoff means that in low-lignin, high-resources litter that is under drought, enzyme concentrations will decrease (shown by a decrease in Vmax) due to a shift in resources from production of enzymes (a resource acquisition trait) to stress tolerance.
+Prediction 4: This tradeoff means that in low-lignin, high-resources litter that is under drought, enzyme concentrations will decrease (shown by a decrease in Vmax) due to a shift in resources from production of enzymes (a resource acquisition trait) to stress tolerance.
 
 
 
-Hypothesis 4a: Microbial enzyme production in high-lignin, low-resources litter is primarily constitutive and, therefore, unchangable regardless of drought or ambient conditions.
+Hypothesis 5: Microbial enzyme production in high-lignin, low-resources litter is primarily constitutive and, therefore, unchangable regardless of drought or ambient conditions.
 
-Prediction 4a: Enzyme concentrations in high-lignin, low-resources litter (i.e. coastal sage scrub) will be the same (no significant changes in Vmax) regardless of changes in precipitation.
+Prediction 5: Enzyme concentrations in high-lignin, low-resources litter (i.e. coastal sage scrub) will be the same (no significant changes in Vmax) regardless of changes in precipitation.
 
 ## Works Cited
 Baker, N. R., & Allison, S. D. (2017). Extracellular enzyme kinetics and thermodynamics along a climate gradient in southern California. *Soil Biology & Biochemistry, 114*, 82-92.

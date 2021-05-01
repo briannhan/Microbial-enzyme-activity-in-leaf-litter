@@ -414,6 +414,11 @@ with activityWriter:
         activity.to_excel(activityWriter, sheet_name=sheet, index=False)
 
 with paramsWriter:
+    columnsKeep = ["Time point", "ID", "Vegetation", "Precip", "Enzyme",
+                   "Replicate"]
+    valueCols = ["Vmax", "Km"]
+    parameters = pd.melt(parameters, id_vars=columnsKeep, value_vars=valueCols,
+                         var_name="Parameter")
     parameters.to_excel(paramsWriter, index=False)
 # %%
 print(datetime.now() - startTime)
