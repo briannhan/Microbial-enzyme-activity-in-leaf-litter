@@ -55,7 +55,7 @@ def shapiroWilk(timePoint, paramsDF):
     2 dataframes of test results, 1 for each parameter.
 
     """
-    tpParams = paramsDF[paramsDF["Time point"] == timePoint]
+    tpParams = paramsDF[paramsDF["timePoint"] == timePoint]
     paramsGrouped = tpParams.groupby(["Precip", "Vegetation", "Enzyme",
                                       "Parameter"])
     VmaxResultsDF = resultsTemplate.copy()

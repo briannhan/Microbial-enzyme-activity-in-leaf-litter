@@ -384,17 +384,17 @@ treatmentDF = treatmentDF.drop_duplicates(subset="ID")
 # (4) Merge parameter dataframes into a single dataframe containing additional
 # columns of timepoints, replicates, and treatments (vegetation & precip)
 T0params = pd.merge(T0hydroParams, T0oxiParams, how="outer")
-T0params["Time point"] = 0
+T0params["timePoint"] = 0
 T3params = pd.merge(T3hydroParams, T3oxiParams, how="outer")
-T3params["Time point"] = 3
+T3params["timePoint"] = 3
 T5params = pd.merge(T5hydroParams, T5oxiParams, how="outer")
-T5params["Time point"] = 5
+T5params["timePoint"] = 5
 T6params = pd.merge(T6hydroParams, T6oxiParams, how="outer")
-T6params["Time point"] = 6
+T6params["timePoint"] = 6
 paramDFs = [T0params, T3params, T5params, T6params]
 parameters = pd.concat(paramDFs)
 parameters = pd.merge(parameters, treatmentDF, on="ID")
-orderedParamCols = ["Time point", "ID", "Vegetation", "Precip", "Enzyme",
+orderedParamCols = ["timePoint", "ID", "Vegetation", "Precip", "Enzyme",
                     "Replicate", "Vmax", "Km"]
 parameters = parameters.reindex(columns=orderedParamCols, copy=True)
 
@@ -414,7 +414,7 @@ with activityWriter:
         activity.to_excel(activityWriter, sheet_name=sheet, index=False)
 
 with paramsWriter:
-    columnsKeep = ["Time point", "ID", "Vegetation", "Precip", "Enzyme",
+    columnsKeep = ["timePoint", "ID", "Vegetation", "Precip", "Enzyme",
                    "Replicate"]
     valueCols = ["Vmax", "Km"]
     parameters = pd.melt(parameters, id_vars=columnsKeep, value_vars=valueCols,
