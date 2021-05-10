@@ -120,3 +120,133 @@ noInteracModel = ols(formula=noInteracForm, data=VmaxAG).fit()
 results3 = anova_lm(noInteracModel, typ=2)
 '''So the main effects alone (time point, vegetation, and precip) don't have
 any effect on AG either.'''
+
+
+# (5) Writing a function to abstract the process of performing a factorial
+# ANOVA
+def factorialANOVA(enzyme, parameter, threeWay=None, twoWay1=None, twoWay2=None, twoWay3=None):
+    """
+    Carries out a three-way ANOVA on a specific parameter of an enzyme. Each
+    time it is called, it runs an ANOVA once.
+
+    Parameters
+    ----------
+    enzyme : str
+        The name of the enzyme whose parameters will undergo a factorial ANOVA.
+    parameter : str
+        The enzyme parameter that will undergo a factorial ANOVA.
+    threeWay : str, optional
+        The three-way interaction, if specified, and the user wants to test for
+        a three-way interaction. If specified, then a type 3 ANOVA will be
+        performed. The value of this argument must be 'Y' for 'yes' if the user
+        wants to test for this type of interaction. Otherwise, if the user does
+        not want to test for a three-way interaction due to a previous test
+        revealing that there's no significant three-way interaction, then this
+        can be left blank. The default is None.
+    twoWay1 : str, optional
+        A two-way interaction that the user wants to test for. If this
+        argument, along with all the other interactions arguments, is left
+        blank, then this means that there is no two-way interactions at all
+        and a type 2 ANOVA will be performed. The default is None.
+    twoWay2 : str, optional
+        A two-way interaction that the user wants to test for. If this
+        argument, along with all the other interactions arguments, is left
+        blank, then this means that there is no two-way interactions at all
+        and a type 2 ANOVA will be performed. The default is None.
+    twoWay3 : str, optional
+        A two-way interaction that the user wants to test for. If this
+        argument, along with all the other interactions arguments, is left
+        blank, then this means that there is no two-way interactions at all
+        and a type 2 ANOVA will be performed. The default is None.
+
+    Returns
+    -------
+    Pandas dataframe of ANOVA results
+
+    """
+    boolean1 = parameters["Enzyme"] == enzyme
+    boolean2 = parameters["Parameter"] == parameter
+    dataParams = parameters[(boolean1) & (boolean2)]
+    if threeWay == "Y":  # Testing for three-way interactions
+        formu = "value ~ C(timePoint, Sum)*C(Vegetation, Sum)*C(Precip, Sum)"
+        model = ols(formula=formu, data=dataParams).fit()
+        results = anova_lm(model, typ=3)
+    elif twoWay1 is not None:  # Testing for at least 1 two-way interaction
+        if twoWay2 is not None:  # Testing for at least 2 two-way interactions
+            if twoWay3 is not None:  # Testing for 3 two-way interactions
+                formu = "value ~ {0} + {1} + {2}".format(twoWay1, twoWay2,
+                                                         twoWay3)
+            else:
+                formu = "value ~ {0} + {1}".format(twoWay1, twoWay2)
+        else:
+            factor1 = "C(timePoint, Sum)"
+            factor2 = "C(Vegetation, Sum)"
+            factor3 = "C(Precip, Sum)"
+            formu = "value ~ {0} + {1} + {2} + {3}".format(factor1, factor2,
+                                                           factor3, twoWay1)
+        model = ols(formula=formu, data=dataParams).fit()
+        results = anova_lm(model, typ=3)
+    else:  # If there are no interactions, so a Type 2 ANOVA will be ran
+        formu = "value ~ C(timePoint) + Vegetation + Precip"
+        model = ols(formula=formu, data=dataParams).fit()
+        results = anova_lm(model, typ=2)
+    return results
+
+
+# %%
+# Purpose: Running factorial ANOVAs for AG Km
+
+# (1) Testing for all interactions (two-way and three-way)
+results1KmAG = factorialANOVA(enzyme="AG", parameter="Km", threeWay="Y")
+'''Three-way interactions are not significant, so removing that and specifying
+the individual two-way interactions'''
+
+# (2) Testing for two-way interactions only
+results2KmAG = factorialANOVA(enzyme="AG", parameter="Km", twoWay1=timeXveg,
+                              twoWay2=timeXppt, twoWay3=vegXppt)
+'''No two-way interactions are significant either, so now I'm gonna test for
+only the main effects.'''
+
+# (3) Testing for main effects only
+results3KmAG = factorialANOVA(enzyme="AG", parameter="Km")
+'''And there are no significant main effects. So looks like time point,
+vegetation, and precipitation does not influence alpha-glucosidase activity,
+meaning that alpha-glucosidase activity is relatively constant between both
+coastal sage scrub and grasslands regardless of precipitation treatments, the
+amount of time that decomposition had occurred, and season (dry or growing).'''
+# %%
+# Purpose: Running factorial ANOVAs for AP Vmax
+
+# (1) Testing for all interactions (two-way and three-way)
+results1VmaxAP = factorialANOVA("AP", "Vmax", "Y")
+'''So timePoint x vegetation and timePoint x precipitation are almost
+significant, but otherwise no significant interactions. timePoint as a main
+effect is signifcant though. Time to remove the three-way interaction.'''
+
+# (2) Testing for two-way interactions only
+results2VmaxAP = factorialANOVA("AP", "Vmax", twoWay1=timeXppt,
+                                twoWay2=timeXveg, twoWay3=vegXppt)
+'''Again, timePoint x vegetation and timePoint x precipitation are only
+marginally significant, while the other interaction,
+vegetation x precipitation, isn't significant. Also, again, timePoint as a main
+effect is significant, but this time, precipitation as a main effect is
+marginally significant. Time to remove all the two-way interactions.'''
+
+# (3) Testing for main effects only
+results3VmaxAP = factorialANOVA("AP", "Vmax")
+'''timePoint as a main effect is significant, while precipitation as a main
+effect is only marginally significant this time around.'''
+
+# %%
+# Purpose: Running factorial ANOVAs for AP Km
+
+# (1) Testing for all interactions (two-way and three-way)
+results1KmAP = factorialANOVA("AP", "Km", "Y")
+
+# (2) Testing for two-way interactions only
+results2KmAP = factorialANOVA("AP", "Km", twoWay1=timeXppt, twoWay2=timeXveg,
+                              twoWay3=vegXppt)
+
+# (3) Removing timePoint x precipitation, which is the only non-signifcant
+# two-way interaction
+results3KmAP = factorialANOVA("AP", "Km", twoWay1=timeXveg, twoWay2=vegXppt)
