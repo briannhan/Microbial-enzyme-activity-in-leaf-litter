@@ -19,6 +19,8 @@ from statsmodels.formula.api import ols
 # from statsmodels.stats.multicomp import MultiComparison
 from statsmodels.stats.anova import anova_lm
 from statsmodels.multivariate.manova import MANOVA
+from datetime import datetime
+start = datetime.now()
 
 # Loading in the log base 10 transformed Michaelis-Menten parameters to perform
 # factorial ANOVA on
@@ -189,6 +191,11 @@ def factorialANOVA(enzyme, parameter, threeWay=None, twoWay1=None, twoWay2=None,
     else:  # If there are no interactions, so a Type 2 ANOVA will be ran
         formu = "value ~ C(timePoint) + Vegetation + Precip"
         model = ols(formula=formu, data=dataParams).fit()
+        # if enzyme != "PPO":
+        #     results = anova_lm(model, typ=2)
+        # elif enzyme == "PPO":
+        #     # PPO undergoes a type 3 ANOVA
+        #     results = anova_lm(model, typ=3)
         results = anova_lm(model, typ=2)
     return results
 
@@ -250,3 +257,102 @@ results2KmAP = factorialANOVA("AP", "Km", twoWay1=timeXppt, twoWay2=timeXveg,
 # (3) Removing timePoint x precipitation, which is the only non-signifcant
 # two-way interaction
 results3KmAP = factorialANOVA("AP", "Km", twoWay1=timeXveg, twoWay2=vegXppt)
+# %%
+# Purpose: Running factorial ANOVAs for BG Vmax
+
+# (1) Testing all interactions (two-way and three-way)
+results1VmaxBG = factorialANOVA("BG", "Vmax", "Y")
+
+# (2) Testing only two-way interactions
+results2VmaxBG = factorialANOVA("BG", "Vmax", twoWay1=timeXppt,
+                                twoWay2=timeXveg, twoWay3=vegXppt)
+
+# (3) Testing model with no interactions
+results3VmaxBG = factorialANOVA("BG", "Vmax")
+# %%
+# Purpose: Running factorial ANOVAs for BG Km
+
+# (1) Testing all interactions (two-way and three-way)
+results1KmBG = factorialANOVA("BG", "Km", "Y")
+
+# (2) Testing only two-way interactions
+results2KmBG = factorialANOVA("BG", "Km", twoWay1=timeXppt, twoWay2=timeXveg,
+                              twoWay3=vegXppt)
+
+# (3) Testing main effects only
+results3KmBG = factorialANOVA("BG", "Km")
+# %%
+# Purpose: Running factorial ANOVAs for BX Vmax
+
+# (1) Testing all interactions (two-way and three-way)
+results1VmaxBX = factorialANOVA("BX", "Vmax", "Y")
+
+# (2) Testing only two-way interactions
+results2VmaxBX = factorialANOVA("BX", "Vmax", twoWay1=timeXppt,
+                                twoWay2=timeXveg, twoWay3=vegXppt)
+
+# (3) Testing main effects only
+results3VmaxBX = factorialANOVA("BX", "Vmax")
+
+# %%
+# Purpose: Running factorial ANOVAs for BX Km
+
+# (1) Testing for all interactions (two-way and three-way)
+results1KmBX = factorialANOVA("BX", "Km", "Y")
+
+# (2) Testing two-way interactions only
+results2KmBX = factorialANOVA("BX", "Km", None, timeXppt, timeXveg, vegXppt)
+
+# (3) Testing main effects only
+results3KmBX = factorialANOVA("BX", "Km")
+
+# %%
+# Purpose: Running factorial ANOVAs for CBH Vmax
+
+# (1) Testing for all interactions (two-way and three-way)
+results1VmaxCBH = factorialANOVA("CBH", "Vmax", "Y")
+
+# (2) Testing for two-way interactions only
+results2VmaxCBH = factorialANOVA("CBH", "Vmax", twoWay1=timeXppt,
+                                 twoWay2=timeXveg, twoWay3=vegXppt)
+
+# (3) Testing after removal of vegetation x precipitation
+results3VmaxCBH = factorialANOVA("CBH", "Vmax", None, timeXppt, timeXveg)
+# %%
+# Purpose: Running factorial ANOVAs for CBH Km
+
+# (1) Testing for all interactions (two-way and three-way)
+results1KmCBH = factorialANOVA("CBH", "Km", "Y")
+
+# (2) Testing two-way interactions only
+results2KmCBH = factorialANOVA("CBH", "Km", None, timeXppt, timeXveg, vegXppt)
+
+# (3) Removing vegetation x precipitation and testing for the remaining
+# two-way interactions
+results3KmCBH = factorialANOVA("CBH", "Km", None, timeXppt, timeXveg)
+# %%
+# Purpose: Running factorial ANOVAs for LAP Vmax
+
+# (1) Testing for all interactions (two-way and three-way)
+results1VmaxLAP = factorialANOVA("LAP", "Vmax", "Y")
+
+# (2) Testing for two-way interactions only
+results2VmaxLAP = factorialANOVA("LAP", "Vmax", twoWay1=timeXppt,
+                                 twoWay2=timeXveg, twoWay3=vegXppt)
+
+# (3) Testing for main effects only
+results3VmaxLAP = factorialANOVA("LAP", "Vmax")
+
+# %%
+# Purpose: Running factorial ANOVAs for LAP Km
+
+# (1) Testing for all interactions (two-way and three-way)
+results1KmLAP = factorialANOVA("LAP", "Km", "Y")
+
+# (2) Testing for two-way interactions only
+results2KmLAP = factorialANOVA("LAP", "Km", None, timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for main effects only
+results3KmLAP = factorialANOVA("LAP", "Km")
+# %%
+print(datetime.now() - start)
