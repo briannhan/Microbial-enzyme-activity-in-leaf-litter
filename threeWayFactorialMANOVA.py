@@ -355,4 +355,51 @@ results2KmLAP = factorialANOVA("LAP", "Km", None, timeXppt, timeXveg, vegXppt)
 # (3) Testing for main effects only
 results3KmLAP = factorialANOVA("LAP", "Km")
 # %%
+# Purpose: Running factorial ANOVAs for NAG Vmax
+
+# (1) Testing for all interactions (two-way and three-way)
+results1VmaxNAG = factorialANOVA("NAG", "Vmax", "Y")
+
+# (2) Testing two-way interactions only
+results2VmaxNAG = factorialANOVA("NAG", "Vmax", twoWay1=timeXppt,
+                                 twoWay2=timeXveg, twoWay3=vegXppt)
+
+# (3) Removing vegetation x precipitation and timePoint x precipitation, which
+# are the non-significant two-way interactions, and testing for the remaining
+# timePoint x vegetation interaction
+results3VmaxNAG = factorialANOVA("NAG", "Vmax", None, timeXveg)
+# %%
+# Purpose: Running factorial ANOVAs for NAG Km
+
+# (1) Testing for all interactions (two-way and three-way)
+results1KmNAG = factorialANOVA("NAG", "Km", "Y")
+
+# (2) Testing two-way interactions only
+results2KmNAG = factorialANOVA("NAG", "Km", None, timeXppt, timeXveg, vegXppt)
+
+# (3) Removing vegetation x precipitation and timePoint x precipitation, which
+# are the non-significant two-way interactions, and testing for the remaining
+# timePoint x vegetation interaction
+results3KmNAG = factorialANOVA("NAG", "Km", None, timeXveg)
+# %%
+# Purpose: Running factorial ANOVAs for PPO Vmax
+
+# (1) Testing for all interactions (two-way and three-way)
+results1VmaxPPO = factorialANOVA("PPO", "Vmax", "Y")
+'''Lol and I already got a significant three-way interaction right off the bat
+'''
+# %%
+# Purpose: Running factorial ANOVAs for PPO Km
+
+# (1) Testing for all interactions (two-way and three-way)
+results1KmPPO = factorialANOVA("PPO", "Km", "Y")
+
+# (2) Testing two-way interactions only
+results2KmPPO = factorialANOVA("PPO", "Km", None, timeXppt, timeXveg, vegXppt)
+
+# (3) Removing non-significant two-way interactions, which are
+# vegetation x precipitation and timePoint x precipitation, and testing for the
+# remaining significant two-way interaction, timePoint x vegetation
+results3KmPPO = factorialANOVA("PPO", "Km", None, timeXveg)
+# %%
 print(datetime.now() - start)
