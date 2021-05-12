@@ -1,7 +1,0 @@
-group1,group2,meandiff,p-adj,lower,upper,reject,
-CSS x Ambient,CSS x Reduced,-0.0174,0.9,-0.3602,0.3255,False,
-CSS x Ambient,Grassland x Ambient,0.4046,0.0145,0.0617,0.7474,True,
-CSS x Ambient,Grassland x Reduced,0.482,0.0025,0.1391,0.8249,True,
-CSS x Reduced,Grassland x Ambient,0.4219,0.0099,0.0791,0.7648,True,
-CSS x Reduced,Grassland x Reduced,0.4994,0.0016,0.1565,0.8422,True,
-Grassland x Ambient,Grassland x Reduced,0.0774,0.9,-0.2654,0.4203,False,

@@ -37,13 +37,17 @@ VmaxANOVA = pd.read_excel(ANOVAresults, "Vmax").dropna(axis=1)
 KmANOVA = pd.read_excel(ANOVAresults, "Km").dropna(axis=1)
 ANOVAcols = VmaxANOVA.columns.tolist()
 mainEffects = ANOVAcols[1:4]
-for i in range(len(mainEffects)):
-    mainEffect = mainEffects[i]
-    if mainEffect == "Precipitation":
-        # Changes this name to have the same name as a column in the parameters
-        # dataframe below in order to more easily subset the parameters
-        # dataframe
-        mainEffects[i] = "Precip"
+# mainEffectParams = ['timePoint', 'Vegetation', 'Precip']
+'''mainEffectParams will be used to subset specific columns from the parameters
+dataframe below while mainEffects will be used to subset specific columns from
+the ANOVA results dataframes above.'''
+# for i in range(len(mainEffectParams)):
+#     mainEffect = mainEffectParams[i]
+#     if mainEffect == "Precipitation":
+#         # Changes this name to have the same name as a column in the parameters
+#         # dataframe below in order to more easily subset the parameters
+#         # dataframe
+#         mainEffectParams[i] = "Precip"
 interactions = ANOVAcols[4:]
 twoWay = interactions[:-1]
 
@@ -118,21 +122,36 @@ def Tukey(ez, pm):
     elif pm == "Km":
         ANOVAdf = KmANOVA
 
-    enzymeANOVA = ANOVAdf[ANOVAdf.Enzyme == ez]
+    ezANOVAind = ANOVAdf[ANOVAdf.Enzyme == ez].index.tolist()[0]
     conditions = (parameters.Enzyme == ez) & (parameters.Parameter == pm)
     paramsOI = parameters[conditions]  # parameters of interest
     interToTest = []
     for interaction in interactions:
-        ANOVAvalue = str(enzymeANOVA[interaction])
+        ANOVAvalue = ANOVAdf.loc[ezANOVAind, interaction]
         if ANOVAvalue != "o":
             interToTest.append(interaction)
 
-    mainEffectToTest = []
-    if len(interToTest) == 0:
-        for mainEffect in mainEffects:
-            ANOVAvalue = str(enzymeANOVA[mainEffect])
-            if ANOVAvalue != "o":
-                mainEffectToTest.append(mainEffect)
+    sigMainEffect = []
+    for mainEffect in mainEffects:
+        ANOVAvalue = ANOVAdf.loc[ezANOVAind, mainEffect]
+        if ANOVAvalue != "o":
+            sigMainEffect.append(mainEffect)
+
+    if "Precipitation" in sigMainEffect:
+        precipInd = sigMainEffect.index("Precipitation")
+        sigMainEffect[precipInd] = "Precip"
+
+    mainEnotInInter = []
+    effectToTest = []
+    for mainEffect in sigMainEffect:
+        for interaction in interToTest:
+            if mainEffect not in interaction:
+                mainEnotInInter.append(mainEffect)
+
+    if "Three-way" in interToTest or len(interToTest) >= 2:
+        sigMainEffect = []
+        mainEnotInInter = []
+        effectToTest = []
 
     if len(interToTest) > 0:  # Perform simple main effects Tukey test
         # print(interToTest)
@@ -150,7 +169,7 @@ def Tukey(ez, pm):
 
             # Writing Tukey results out to a .txt file
             resultsFolder = statsFolder/"Tukey posthoc"/ez
-            tukeyTxtName = interaction + ".txt"
+            tukeyTxtName = "{0}, {1}.txt".format(pm, interaction)
             tukeyTxtPath = resultsFolder/tukeyTxtName
             txtFile = open(tukeyTxtPath, "w")
             resultsLen = len(tukeyResults)
@@ -164,21 +183,26 @@ def Tukey(ez, pm):
             txtFile.close()
 
             # Writing Tukey results out to an Excel file
-            tukeyExcelName = interaction + ".xlsx"
+            tukeyExcelName = "{0}, {1}.xlsx".format(pm, interaction)
             tukeyExcelPath = resultsFolder/tukeyExcelName
-            tukeyDF = pd.read_csv(tukeyTxtPath, sep=",", header=0)
-            with ExcelWriter(tukeyExcelPath) as writer:
-                tukeyDF.to_excel(writer, pm)
-    elif len(interToTest) == 0 and len(mainEffectToTest) > 0:
-        # print(mainEffectToTest)
-        # Performing pairwise contrasts Tukey tests
-        for mainE in mainEffects:
+            tukeyDF = pd.read_csv(tukeyTxtPath, sep=",", header=0).dropna(1)
+            tukeyDF.to_excel(tukeyExcelPath, pm, index=False)
+    if len(mainEnotInInter) > 0:
+        effectToTest = mainEnotInInter
+    elif len(interToTest) == 0 and len(sigMainEffect) > 0:
+        effectToTest = sigMainEffect
+
+    if len(effectToTest) > 0:
+        # Performing pairwise contrasts Tukey tests for parameters that either
+        # have no significant interactions or have significant interactions
+        # and 1 main effect that's not part of the interaction
+        for mainE in effectToTest:
             groups = paramsOI[mainE]
             tukeyResults = MC(paramsOI.value, groups).tukeyhsd().summary()
 
             # Writing Tukey results out to a .txt file
             resultsFolder = statsFolder/"Tukey posthoc"/ez
-            tukeyTxtName = mainE + ".txt"
+            tukeyTxtName = "{0}, {1}.txt".format(pm, mainE)
             tukeyTxtPath = resultsFolder/tukeyTxtName
             txtFile = open(tukeyTxtPath, "w")
             resultsLen = len(tukeyResults)
@@ -192,25 +216,30 @@ def Tukey(ez, pm):
             txtFile.close()
 
             # Writing Tukey results out to an Excel file
-            tukeyExcelName = interaction + ".xlsx"
+            tukeyExcelName = "{0}, {1}.xlsx".format(pm, mainE)
             tukeyExcelPath = resultsFolder/tukeyExcelName
             tukeyDF = pd.read_csv(tukeyTxtPath, sep=",", header=0).dropna(1)
-            with ExcelWriter(tukeyExcelPath) as writer:
-                tukeyDF.to_excel(writer, pm, index=False)
+            tukeyDF.to_excel(tukeyExcelPath, pm, index=False)
     return
 
 
 # (2) Performing Tukey tests for all enzymes
-# print("AP Vmax interactions/main effects to test:")
 Tukey("AP", "Vmax")
-# print('\n')
-
-# print("AP Km interactions/main effects to test")
 Tukey("AP", "Km")
-# print('\n')
 
-# print("BG Vmax interactions/main effects to test")
 Tukey("BG", "Vmax")
-# print('\n')
+
+Tukey("BX", "Km")
+
+Tukey("CBH", "Vmax")
+Tukey("CBH", "Km")
+
+Tukey("LAP", "Km")
+
+Tukey("NAG", "Vmax")
+Tukey("NAG", "Km")
+
+Tukey("PPO", "Vmax")
+Tukey("PPO", "Km")
 # %%
 print(dt.now() - start)

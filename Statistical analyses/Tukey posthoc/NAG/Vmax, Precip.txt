@@ -1,0 +1,2 @@
+group1 group2 meandiff p-adj lower upper reject 
+Ambient Reduced 0.1209 0.326 -0.1232 0.3651 False 
