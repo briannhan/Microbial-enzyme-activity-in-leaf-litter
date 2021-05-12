@@ -1,2 +1,2 @@
-group1 group2 meandiff p-adj lower upper reject 
-CSS Grassland -1.2765 0.001 -1.7855 -0.7676 True 
+group1,group2,meandiff,p-adj,lower,upper,reject,
+CSS,Grassland,-1.2765,0.001,-1.7855,-0.7676,True,

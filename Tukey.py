@@ -211,7 +211,7 @@ def Tukey(ez, pm):
                 for value in row:
                     value = str(value)
                     txtFile.write(value)
-                    txtFile.write(" ")
+                    txtFile.write(",")
                 txtFile.write("\n")
             txtFile.close()
 
@@ -241,5 +241,14 @@ Tukey("NAG", "Km")
 
 Tukey("PPO", "Vmax")
 Tukey("PPO", "Km")
+
+# (3) Comparing mean BX Km across the 2 vegetation types just to see which one
+# has larger Km
+BXKm = parameters[(parameters.Enzyme == "BX") & (parameters.Parameter == "Km")]
+meanBXKm = BXKm.groupby("Vegetation")["value"].mean()
+'''So the way that the tukey results dataframe is set up is that it subtracts
+the mean of group 1 from group 2 so that
+meandiff = group2 - group1
+'''
 # %%
 print(dt.now() - start)
