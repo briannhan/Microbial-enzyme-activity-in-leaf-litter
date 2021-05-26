@@ -5,8 +5,9 @@ Created on Tue May 11 15:32:03 2021
 @author: Brian Chung
 This script performs Tukey posthoc tests following factorial MANOVA and ANOVA
 results. This posthoc analysis, along with the factorial ANOVAs conducted prior
-to this analysis, draws heavily from the following YouTube video:
+to this analysis, draws heavily from the following links:
 https://youtu.be/d_Azlncd-kU
+https://www.pythonfordatascience.org/factorial-anova-python/
 
 For significant interactions, simple main effects will be investigated. If
 no interactions are significant, then pairwise contrasts between the main
@@ -34,20 +35,11 @@ statsContents = os.listdir(statsFolder)
 ANOVApath = statsFolder/'ANOVA results.xlsx'
 ANOVAresults = ExcelFile(ANOVApath)
 VmaxANOVA = pd.read_excel(ANOVAresults, "Vmax").dropna(axis=1)
+VmaxANOVA = VmaxANOVA[VmaxANOVA.Enzyme != "MANOVA"]
 KmANOVA = pd.read_excel(ANOVAresults, "Km").dropna(axis=1)
+KmANOVA = KmANOVA[KmANOVA.Enzyme != "MANOVA"]
 ANOVAcols = VmaxANOVA.columns.tolist()
 mainEffects = ANOVAcols[1:4]
-# mainEffectParams = ['timePoint', 'Vegetation', 'Precip']
-'''mainEffectParams will be used to subset specific columns from the parameters
-dataframe below while mainEffects will be used to subset specific columns from
-the ANOVA results dataframes above.'''
-# for i in range(len(mainEffectParams)):
-#     mainEffect = mainEffectParams[i]
-#     if mainEffect == "Precipitation":
-#         # Changes this name to have the same name as a column in the parameters
-#         # dataframe below in order to more easily subset the parameters
-#         # dataframe
-#         mainEffectParams[i] = "Precip"
 interactions = ANOVAcols[4:]
 twoWay = interactions[:-1]
 
@@ -73,22 +65,22 @@ TukeyResults = comparisons.tukeyhsd().summary()
 
 # (3) Writing Tukey results to a text file
 TukeyFilePath = statsFolder/"Tukey posthoc"/"AP"/"AP Vmax Tukey.txt"
-TukeyFile = open(TukeyFilePath, "w")
-for i in range(len(TukeyResults)):
-    row = TukeyResults[i]
-    for j in range(len(row)):
-        value = str(row[j])
-        TukeyFile.write(value)
-        TukeyFile.write(' ')
-    TukeyFile.write('\n')
-TukeyFile.close()
+# TukeyFile = open(TukeyFilePath, "w")
+# for i in range(len(TukeyResults)):
+#     row = TukeyResults[i]
+#     for j in range(len(row)):
+#         value = str(row[j])
+#         TukeyFile.write(value)
+#         TukeyFile.write(' ')
+#     TukeyFile.write('\n')
+# TukeyFile.close()
 
 # (4) Writing the Tukey text file to an Excel file
 APTukeyResultsName = "AP Tukey.xlsx"
 APTukeyPath = statsFolder/"Tukey posthoc"/"AP"/APTukeyResultsName
-APVmaxTukeyDF = pd.read_csv(TukeyFilePath, sep=" ", header=0).dropna(axis=1)
-with ExcelWriter(APTukeyPath) as writer:
-    APVmaxTukeyDF.to_excel(writer, "Vmax", index=False)
+# APVmaxTukeyDF = pd.read_csv(TukeyFilePath, sep=" ", header=0).dropna(axis=1)
+# with ExcelWriter(APTukeyPath) as writer:
+#     APVmaxTukeyDF.to_excel(writer, "Vmax", index=False)
 # %%
 # Purpose: Performing Tukey tests for all enzymes (except for AG, which has
 # no significant interactions or main effects for both Vmax and Km)
@@ -224,23 +216,43 @@ def Tukey(ez, pm):
 
 
 # (2) Performing Tukey tests for all enzymes
-Tukey("AP", "Vmax")
-Tukey("AP", "Km")
+# Tukey("AP", "Vmax")
+# Tukey("AP", "Km")
 
-Tukey("BG", "Vmax")
+# Tukey("BG", "Vmax")
+'''Interestingly, BG Vmax shows no significant pairwise differences for time
+point despite ANOVA showing time point as a significant main effect. Anyway,
+the timePoint excel and text files are deleted manually because of this.
+'''
 
-Tukey("BX", "Km")
+# Tukey("BX", "Km")
 
-Tukey("CBH", "Vmax")
-Tukey("CBH", "Km")
+# Tukey("CBH", "Vmax")
+'''Likewise, CBH Vmax shows no significant pairwise differences for
+timePoint x Precipitation despite ANOVA results indicating otherwise, so these
+files are deleted manually.
+'''
+# Tukey("CBH", "Km")
 
-Tukey("LAP", "Km")
+# Tukey("LAP", "Km")
 
-Tukey("NAG", "Vmax")
-Tukey("NAG", "Km")
+# Tukey("NAG", "Vmax")
+'''And also, NAG Vmax shows no signifcant pairwise differences for vegetation
+as a main effect despite ANOVA results indicating otherwise. So, these are
+deleted accordingly.
+'''
+# Tukey("NAG", "Km")
 
-Tukey("PPO", "Vmax")
-Tukey("PPO", "Km")
+# Tukey("PPO", "Vmax")
+'''And PPO Vmax shows no significant pairwise differences for
+timePoint x Vegetation as a main effect, so these files are deleted accordingly
+'''
+# Tukey("PPO", "Km")
+
+'''The files that are deleted manually above show significance at the 0.05
+level in ANOVA, but this alpha level is likely too high, resulting in a lack of
+significance according to Tukey posthoc.
+'''
 
 # (3) Comparing mean BX Km across the 2 vegetation types just to see which one
 # has larger Km
@@ -249,6 +261,77 @@ meanBXKm = BXKm.groupby("Vegetation")["value"].mean()
 '''So the way that the tukey results dataframe is set up is that it subtracts
 the mean of group 1 from group 2 so that
 meandiff = group2 - group1
+'''
+# %%
+# Purpose: Simplifying Tukey test results
+
+
+# (1) Writing text files of groups in the output Tukey results Excel files to
+# facilitate manual annotation of groups with significant differences
+def groups(enzyme):
+    """
+    Generates Excel files of Tukey posthoc groups of all significant
+    interactions and significant main effects not part of these interactions
+    for both parameters of an enzyme.
+
+    Parameters
+    ----------
+    enzyme : str
+        The enzyme of interest. This specifies the folder that contain Tukey
+        posthoc results of a particular enzyme.
+
+    Returns
+    -------
+    None.
+
+    """
+    resultsFolder = statsFolder/"Tukey posthoc"/enzyme
+    allResults = os.listdir(resultsFolder)
+    if enzyme == "AP":
+        '''Some files in the AP Tukey results folder begins with the enzyme
+        name while in the other Tukey results folders, no files begin with
+        enzyme names. So I'm removing the files that begin with enzyme names
+        to facilitate the flow of this function.
+        '''
+        correctedResults = []
+        for file in allResults:
+            if "AP" not in file:
+                correctedResults.append(file)
+        allResults = correctedResults
+
+    # Isolating only Excel files that contain Tukey results to work with
+    excelResults = []
+    for file in allResults:
+        if file.endswith(".xlsx") and "groups" not in file:
+            excelResults.append(file)
+
+    # Creating Excel files of significant groups
+    for file in excelResults:
+        filePath = resultsFolder/file
+        results = pd.read_excel(filePath)
+        group1 = results.group1.tolist()
+        group1 = list(set(group1))  # Dropping duplicates
+        group2 = results.group2.tolist()
+        group2 = list(set(group2))
+        groups = group1 + group2  # Dropping duplicates
+        sigGroupsDF = pd.DataFrame({"groups": groups})
+        sigGroupsDF = sigGroupsDF.drop_duplicates()  # Dropping duplicates
+        rawFileName = file.strip(".xlsx")
+        outputName = "{0}, groups.xlsx".format(rawFileName)
+        outputPath = resultsFolder/outputName
+        sigGroupsDF.to_excel(outputPath, index=False)
+    return
+
+
+# (2) Creating Excel files of significant groups using the function above
+groups("AP")
+groups("BG")
+groups("BX")
+groups("CBH")
+groups("LAP")
+groups("NAG")
+groups("PPO")
+'''And now, some manual annotation of which groups are significant or not.
 '''
 # %%
 print(dt.now() - start)

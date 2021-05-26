@@ -9,6 +9,10 @@ signify season). It will produce spreadsheets of MANOVA output (probably only
 1 spreadsheet for combinations of vegetation, precipitation, and time points,
 and 1 spreadsheet for combinations of vegetation, precipitation, and season,
 if I choose to classify time points by season).
+
+Analysis is heavily based on the following links:
+https://www.pythonfordatascience.org/factorial-anova-python/
+https://youtu.be/d_Azlncd-kU
 """
 import pandas as pd
 import os
@@ -342,7 +346,6 @@ results2VmaxLAP = factorialANOVA("LAP", "Vmax", twoWay1=timeXppt,
 
 # (3) Testing for main effects only
 results3VmaxLAP = factorialANOVA("LAP", "Vmax")
-
 # %%
 # Purpose: Running factorial ANOVAs for LAP Km
 
