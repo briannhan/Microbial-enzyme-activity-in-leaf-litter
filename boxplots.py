@@ -169,14 +169,14 @@ for i in range(numOfTukeyGroups):
     # Setting colors for vegetation type
     if "CSS" in group:
         faceColor = CSScolor
-    elif "Grassland" in group:
+    elif "Gr" in group:
         faceColor = grassColor
     else:
         faceColor = white
     # Setting fill type for precipitation treatment
-    if "Ambient" in group:
+    if "A" in group:
         hatchType = ambientHatch
-    elif "Reduced" in group:
+    elif "R" in group:
         hatchType = reducedHatch
     else:
         hatchType = None
@@ -401,14 +401,14 @@ def plotBoxPlot(enzyme, fileName):
         # Setting colors for vegetation type
         if "CSS" in group:
             faceColor = CSScolor
-        elif "Grassland" in group:
+        elif "Gr" in group:
             faceColor = grassColor
         else:
             faceColor = white
         # Setting fill type for precipitation treatment
-        if "Ambient" in group:
+        if "A" in group:
             hatchType = ambientHatch
-        elif "Reduced" in group:
+        elif "R" in group:
             hatchType = reducedHatch
         else:
             hatchType = None
