@@ -38,6 +38,20 @@ for whisker in bp['whiskers']:
 # caps
 for cap in bp['caps']:
     cap.set(color='#8B008B', linewidth=2)
+    # xCap = cap.get_xdata()
+    # yCap = cap.get_ydata()
+    # xMiddle = xCap[0] + ((xCap[1] - xCap[0])/2)
+    # y = yCap[0]
+    # plt.annotate("a", (xMiddle, y), (2, 3), "data", "offset points")
+
+for i in range(4):
+    capIndex = (i*2) - 1
+    cap = bp["caps"][capIndex]
+    xCap = cap.get_xdata()
+    yCap = cap.get_ydata()
+    xMiddle = xCap[0] + ((xCap[1] - xCap[0])/2)
+    y = yCap[0]
+    plt.annotate("a", (xMiddle, y), (2, 3), "data", "offset points")
 
 # changing color and linewidth of
 # medians
