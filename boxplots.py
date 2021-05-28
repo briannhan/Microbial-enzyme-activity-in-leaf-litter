@@ -31,47 +31,45 @@ parameters = pd.read_excel(paramPath).drop(columns=["Replicate",
                                                     "Transformation"])
 parameters = parameters.rename(columns={"Precip": "Precipitation"})
 parameters["timePoint"] = parameters["timePoint"].astype(str)
-
-'''I'm changing the time points up. Originally they were recorded as 0, 3, 5,
-and 6, but after briefly looking at a draft of a manuscript by Ashish, I'm
+'''I'm changing the treatments up. Originally timePoint was recorded as 0, 3,
+5, and 6, but after briefly looking at a draft of a manuscript by Ashish, I'm
 changing them so that they are, accordingly, 1, 2, 3, 4 to fall in line with
-his manuscript.
+his manuscript. In addition, I'm shortening some of the treatment names
 '''
-bool0_1 = parameters["timePoint"] == 0  # 0 is the o.g. timepoint, 1 is the new
-parameters.loc[bool0_1, "timePoint"] = 1
-bool3_2 = parameters["timePoint"] == 3  # 3 is the o.g. timepoint, 2 is the new
-parameters.loc[bool3_2, "timePoint"] = 2
-bool5_3 = parameters["timePoint"] == 5  # 5 is the o.g. timepoint, 3 is the new
-parameters.loc[bool5_3, "timePoint"] = 3
-bool6_4 = parameters["timePoint"] == 6  # 6 is the o.g. timepoint, 4 is the new
-parameters.loc[bool6_4, "timePoint"] = 4
-tpDict = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
-          "0 x Grassland": "1 x Grassland", "3 x Grassland": "2 x Grassland",
-          "5 x Grassland": "3 x Grassland", "6 x Grassland": "4 x Grassland",
-          "0 x CSS": "1 x CSS", "3 x CSS": "2 x CSS", "5 x CSS": "3 x CSS",
-          "6 x CSS": "4 x CSS",  # timePoint x Vegetation
-          "0 x Reduced": "1 x Reduced", "3 x Reduced": "2 x Reduced",
-          "5 x Reduced": "3 x Reduced", "6 x Reduced": "4 x Reduced",
-          "0 x Ambient": "1 x Ambient", "3 x Ambient": "2 x Ambient",
-          "5 x Ambient": "3 x Ambient", "6 x Ambient": "4 x Ambient",
-          # timePoint x Precipitation
-          "0 x Reduced x Grassland": "1 x Grassland x Reduced",
-          "3 x Reduced x Grassland": "2 x Grassland x Reduced",
-          "5 x Reduced x Grassland": "3 x Grassland x Reduced",
-          "6 x Reduced x Grassland": "4 x Grassland x Reduced",
-          "0 x Ambient x Grassland": "1 x Grassland x Ambient",
-          "3 x Ambient x Grassland": "2 x Grassland x Ambient",
-          "5 x Ambient x Grassland": "3 x Grassland x Ambient",
-          "6 x Ambient x Grassland": "4 x Grassland x Ambient",
-          "0 x Reduced x CSS": "1 x CSS x Reduced",
-          "3 x Reduced x CSS": "2 x CSS x Reduced",
-          "5 x Reduced x CSS": "3 x CSS x Reduced",
-          "6 x Reduced x CSS": "4 x CSS x Reduced",
-          "0 x Ambient x CSS": "1 x CSS x Ambient",
-          "3 x Ambient x CSS": "2 x CSS x Ambient",
-          "5 x Ambient x CSS": "3 x CSS x Ambient",
-          "6 x Ambient x CSS": "4 x CSS x Ambient"}  # three-way (PPO Vmax)
-oldTreatments = tpDict.keys()
+renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
+                    "0 x Grassland": "1 x Gr", "3 x Grassland": "2 x Gr",
+                    "5 x Grassland": "3 x Gr", "6 x Grassland": "4 x Gr",
+                    "0 x CSS": "1 x CSS", "3 x CSS": "2 x CSS",
+                    "5 x CSS": "3 x CSS", "6 x CSS": "4 x CSS",
+                    # timePoint x Vegetation
+                    "0 x Reduced": "1 x R", "3 x Reduced": "2 x R",
+                    "5 x Reduced": "3 x R", "6 x Reduced": "4 x R",
+                    "0 x Ambient": "1 x A", "3 x Ambient": "2 x A",
+                    "5 x Ambient": "3 x A", "6 x Ambient": "4 x A",
+                    # timePoint x Precipitation
+                    "0 x Reduced x Grassland": "1 x V(Gr) x P(R)",
+                    "3 x Reduced x Grassland": "2 x V(Gr) x P(R)",
+                    "5 x Reduced x Grassland": "3 x V(Gr) x P(R)",
+                    "6 x Reduced x Grassland": "4 x V(Gr) x P(R)",
+                    "0 x Ambient x Grassland": "1 x V(Gr) x P(A)",
+                    "3 x Ambient x Grassland": "2 x V(Gr) x P(A)",
+                    "5 x Ambient x Grassland": "3 x V(Gr) x P(A)",
+                    "6 x Ambient x Grassland": "4 x V(Gr) x P(A)",
+                    "0 x Reduced x CSS": "1 x V(CSS) x P(R)",
+                    "3 x Reduced x CSS": "2 x V(CSS) x P(R)",
+                    "5 x Reduced x CSS": "3 x V(CSS) x P(R)",
+                    "6 x Reduced x CSS": "4 x V(CSS) x P(R)",
+                    "0 x Ambient x CSS": "1 x V(CSS) x P(A)",
+                    "3 x Ambient x CSS": "2 x V(CSS) x P(A)",
+                    "5 x Ambient x CSS": "3 x V(CSS) x P(A)",
+                    "6 x Ambient x CSS": "4 x V(CSS) x P(A)",
+                    # three-way (PPO Vmax)
+                    "CSS x Reduced": "V(CSS) x P(R)",
+                    "CSS x Ambient": "V(CSS) x P(A)",
+                    "Grassland x Reduced": "V(Gr) x P(R)",
+                    "Grassland x Ambient": "V(Gr) x P(A)"}
+# Vegetation x Precipitation
+oldTreatments = renameTreatments.keys()
 # This dict records the old time points & treatment combinations as the keys
 # and the new time points & treatment combinations as the values
 # %%
@@ -102,19 +100,18 @@ for index, row in annotationsAP_Km.iterrows():
     else:
         # If the annotation groups contain old time points, then they will be
         # renamed according to the dictionary above
-        newGroup = tpDict[oldGroup]
+        newGroup = renameTreatments[oldGroup]
     annotationsAP_Km.loc[index, "groups"] = newGroup
 
 # (3) Wrangling the parameters dataframe to create columns of Tukey groups
 boolean1 = (parameters.Parameter == "Km") & (parameters.Enzyme == "AP")
 AP_Km = parameters[boolean1]
 paramColumns = AP_Km.columns.tolist()
-for index, row in AP_Km.iterrows():
-    oldGroup = row["timePoint"]
-    if oldGroup in oldTreatments:
-        AP_Km.loc[index, "timePoint"] = tpDict[oldGroup]
 splitAnnotateName = annotationsFileName.split(", ")
 mainEorInteraction = splitAnnotateName[1]
+indeVars = ["timePoint", "Vegetation", "Precipitation"]
+# Making a Tukey Group column and then pivoting it to use its values as the
+# new columns for the isolated parameter values
 if "x" in mainEorInteraction:
     splittedFactors = mainEorInteraction.split(" x ")
     factor1 = splittedFactors[0]
@@ -123,7 +120,7 @@ if "x" in mainEorInteraction:
 elif mainEorInteraction == "Three-way":
     groupSeries = (AP_Km["timePoint"] + " x " + AP_Km["Precipitation"] + " x "
                    + AP_Km["Vegetation"])
-else:
+elif mainEorInteraction in indeVars:
     groupSeries = AP_Km[mainEorInteraction]
 AP_Km["TukeyGroups"] = groupSeries
 colsToRemove = []
@@ -132,6 +129,7 @@ for column in paramColumns:
         colsToRemove.append(column)
 AP_Km = AP_Km.drop(columns=colsToRemove)
 AP_Km = AP_Km.pivot(columns="TukeyGroups", values="value")
+AP_Km = AP_Km.rename(columns=renameTreatments)
 TukeyGroups = annotationsAP_Km["groups"].tolist()
 TukeyLabels = annotationsAP_Km["labels"].tolist()
 
@@ -140,70 +138,70 @@ dataToPlot = []
 for group in TukeyGroups:
     dataColumn = AP_Km[group].dropna()
     dataToPlot.append(dataColumn)
-# py.figure("AP, Km, timePoint x Vegetation", (20, 14))
-# bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups)
-# py.ylabel("Log 10 Km (log10(micromolar))", fontfamily="serif",
-#           fontsize="x-large", fontstyle="oblique")
-# py.xlabel("Time, Vegetation combination", fontfamily="serif",
-#           fontsize="x-large", fontstyle="oblique")
-# numOfTukeyGroups = len(TukeyGroups)
+py.figure("AP, Km, timePoint x Vegetation", (20, 14))
+bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups)
+y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
+py.ylabel(y, fontfamily="serif", fontsize="x-large", fontstyle="oblique")
+py.xlabel("Time, Vegetation combination", fontfamily="serif",
+          fontsize="x-large", fontstyle="oblique")
+numOfTukeyGroups = len(bp["boxes"])
 # Annotating Tukey labels
-# for i in range(numOfTukeyGroups):
-#     capIndex = (i*2) + 1
-#     topCap = bp["caps"][capIndex]
-#     xCap = topCap.get_xdata()
-#     yCap = topCap.get_ydata()
-#     xMiddle = xCap[0] + ((xCap[1] - xCap[0])/2)
-#     y = yCap[0]
-#     py.annotate(TukeyLabels[i], (xMiddle, y), (3, 4), "data",
-#                 "offset pixels",
-#                 fontsize="large", fontstyle="italic", fontweight="bold")
+for i in range(numOfTukeyGroups):
+    capIndex = (i*2) + 1
+    topCap = bp["caps"][capIndex]
+    xCap = topCap.get_xdata()
+    yCap = topCap.get_ydata()
+    xMiddle = xCap[0] + ((xCap[1] - xCap[0])/2)
+    yVal = yCap[0]
+    py.annotate(TukeyLabels[i], (xMiddle, yVal), (3, 4), "data",
+                "offset pixels",
+                fontsize="large", fontstyle="italic", fontweight="bold")
 # Filling boxes in the boxplot
 CSScolor = (34/255, 136/255, 51/255)  # green
 grassColor = (204/255, 187/255, 68/255)  # yellow
 white = (1, 1, 1)
 ambientHatch = "*"
 reducedHatch = "//"
-# for i in range(numOfTukeyGroups):
-#     series = dataToPlot[i]
-#     group = series.name
-#     patch = bp["boxes"][i]
-#     # Setting colors for vegetation type
-#     if "CSS" in group:
-#         faceColor = CSScolor
-#     elif "Grassland" in group:
-#         faceColor = grassColor
-#     else:
-#         faceColor = white
-#     # Setting fill type for precipitation treatment
-#     if "Ambient" in group:
-#         hatchType = ambientHatch
-#     elif "Reduced" in group:
-#         hatchType = reducedHatch
-#     else:
-#         hatchType = None
-#     patch.set(facecolor=faceColor, hatch=hatchType)
+for i in range(numOfTukeyGroups):
+    series = dataToPlot[i]
+    group = series.name
+    patch = bp["boxes"][i]
+    # Setting colors for vegetation type
+    if "CSS" in group:
+        faceColor = CSScolor
+    elif "Grassland" in group:
+        faceColor = grassColor
+    else:
+        faceColor = white
+    # Setting fill type for precipitation treatment
+    if "Ambient" in group:
+        hatchType = ambientHatch
+    elif "Reduced" in group:
+        hatchType = reducedHatch
+    else:
+        hatchType = None
+    patch.set(facecolor=faceColor, hatch=hatchType)
 # Making a legend
 CSSpatch = Patch(facecolor=CSScolor)
 grassPatch = Patch(facecolor=grassColor)
 ambientLegend = Patch(facecolor=white, hatch=ambientHatch)
 reducedLegend = Patch(facecolor=white, hatch=reducedHatch)
-# if "Vegetation" in mainEorInteraction:
-#     vegPatches = [CSSpatch, grassPatch]
-#     vegLabels = ["Coastal sage scrub", "Grassland"]
-# else:
-#     vegPatches = []
-#     vegLabels = []
-# if "Precipitation" in mainEorInteraction:
-#     pptPatches = [ambientLegend, reducedLegend]
-#     pptLabels = ["Ambient", "Reduced"]
-# else:
-#     pptPatches = []
-#     pptLabels = []
-# patches = vegPatches + pptPatches
-# legendLabels = vegLabels + pptLabels
-# py.legend(handles=patches, labels=legendLabels)
-# py.savefig(APtukeyFolder/"AP, Km, timePoint x Vegetation")
+if "Vegetation" in mainEorInteraction:
+    vegPatches = [CSSpatch, grassPatch]
+    vegLabels = ["Coastal sage scrub", "Grassland"]
+else:
+    vegPatches = []
+    vegLabels = []
+if "Precipitation" in mainEorInteraction:
+    pptPatches = [ambientLegend, reducedLegend]
+    pptLabels = ["Ambient", "Reduced"]
+else:
+    pptPatches = []
+    pptLabels = []
+patches = vegPatches + pptPatches
+legendLabels = vegLabels + pptLabels
+py.legend(handles=patches, labels=legendLabels)
+py.savefig(APtukeyFolder/"AP, Km, timePoint x Vegetation")
 
 
 # (5) Abstracting the process into a few functions
@@ -268,7 +266,7 @@ def annotationFileRename(enzyme, fileName):
         else:
             # If the annotation groups contain old time points, then they will
             # be renamed according to the dictionary above
-            newGroup = tpDict[oldGroup]
+            newGroup = renameTreatments[oldGroup]
         annotations.loc[index, "groups"] = newGroup
     return annotations
 
@@ -303,7 +301,7 @@ def TukeyGroupCols(enzyme, fileName):
     for index, row in paramsOI.iterrows():
         oldGroup = row["timePoint"]
         if oldGroup in oldTreatments:
-            paramsOI.loc[index, "timePoint"] = tpDict[oldGroup]
+            paramsOI.loc[index, "timePoint"] = renameTreatments[oldGroup]
     if "x" in mainEorInteraction:
         splittedFactors = mainEorInteraction.split(" x ")
         factor1 = splittedFactors[0]
@@ -322,6 +320,7 @@ def TukeyGroupCols(enzyme, fileName):
             colsToRemove.append(column)
     paramsOI = paramsOI.drop(columns=colsToRemove)
     paramsOI = paramsOI.pivot(columns="TukeyGroups", values="value")
+    paramsOI = paramsOI.rename(columns=renameTreatments)
     return paramsOI
 
 
@@ -364,10 +363,10 @@ def plotBoxPlot(enzyme, fileName):
     py.figure(figName, (20, 14))
     bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups)
     if parameter == "Km":
-        yAxis = "Log 10 Km (log10(micromolar))"
+        y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
     elif parameter == "Vmax":
-        yAxis = "Log 10 Vmax (log10(micromole/g/s))"
-    py.ylabel(yAxis, fontfamily="serif", fontsize="x-large",
+        y = r"Enzyme amount, $Log_{10}$ $V_{max}$ ($log_{10}$ $(\mu mol/g/s)$)"
+    py.ylabel(y, fontfamily="serif", fontsize="x-large",
               fontstyle="oblique")
 
     if mainEorInteraction == "timePoint x Vegetation":
@@ -389,8 +388,8 @@ def plotBoxPlot(enzyme, fileName):
         xCap = topCap.get_xdata()
         yCap = topCap.get_ydata()
         xMiddle = xCap[0] + ((xCap[1] - xCap[0])/2)
-        y = yCap[0]
-        py.annotate(TukeyLabels[i], (xMiddle, y), (3, 4), "data",
+        yVal = yCap[0]
+        py.annotate(TukeyLabels[i], (xMiddle, yVal), (3, 4), "data",
                     "offset pixels", fontsize="large", fontstyle="oblique",
                     fontweight="bold")
 
