@@ -42,32 +42,32 @@ renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
                     "0 x CSS": "1, CSS", "3 x CSS": "2, CSS",
                     "5 x CSS": "3, CSS", "6 x CSS": "4, CSS",
                     # timePoint x Vegetation
-                    "0 x Reduced": "1, R", "3 x Reduced": "2, R",
-                    "5 x Reduced": "3, R", "6 x Reduced": "4, R",
+                    "0 x Reduced": "1, D", "3 x Reduced": "2, D",
+                    "5 x Reduced": "3, D", "6 x Reduced": "4, D",
                     "0 x Ambient": "1, A", "3 x Ambient": "2, A",
                     "5 x Ambient": "3, A", "6 x Ambient": "4, A",
                     # timePoint x Precipitation
-                    "0 x Reduced x Grassland": "1, V(Gr), P(R)",
-                    "3 x Reduced x Grassland": "2, V(Gr), P(R)",
-                    "5 x Reduced x Grassland": "3, V(Gr), P(R)",
-                    "6 x Reduced x Grassland": "4, V(Gr), P(R)",
-                    "0 x Ambient x Grassland": "1, V(Gr), P(A)",
-                    "3 x Ambient x Grassland": "2, V(Gr), P(A)",
-                    "5 x Ambient x Grassland": "3, V(Gr), P(A)",
-                    "6 x Ambient x Grassland": "4, V(Gr), P(A)",
-                    "0 x Reduced x CSS": "1, V(CSS), P(R)",
-                    "3 x Reduced x CSS": "2, V(CSS), P(R)",
-                    "5 x Reduced x CSS": "3, V(CSS), P(R)",
-                    "6 x Reduced x CSS": "4, V(CSS), P(R)",
-                    "0 x Ambient x CSS": "1, V(CSS), P(A)",
-                    "3 x Ambient x CSS": "2, V(CSS), P(A)",
-                    "5 x Ambient x CSS": "3, V(CSS), P(A)",
-                    "6 x Ambient x CSS": "4, V(CSS), P(A)",
+                    "0 x Reduced x Grassland": "1, Gr, D",
+                    "3 x Reduced x Grassland": "2, Gr, D",
+                    "5 x Reduced x Grassland": "3, Gr, D",
+                    "6 x Reduced x Grassland": "4, Gr, D",
+                    "0 x Ambient x Grassland": "1, Gr, A",
+                    "3 x Ambient x Grassland": "2, Gr, A",
+                    "5 x Ambient x Grassland": "3, Gr, A",
+                    "6 x Ambient x Grassland": "4, Gr, A",
+                    "0 x Reduced x CSS": "1, CSS, D",
+                    "3 x Reduced x CSS": "2, CSS, D",
+                    "5 x Reduced x CSS": "3, CSS, D",
+                    "6 x Reduced x CSS": "4, CSS, D",
+                    "0 x Ambient x CSS": "1, CSS, A",
+                    "3 x Ambient x CSS": "2, CSS, A",
+                    "5 x Ambient x CSS": "3, CSS, A",
+                    "6 x Ambient x CSS": "4, CSS, A",
                     # three-way (PPO Vmax)
-                    "CSS x Reduced": "V(CSS), P(R)",
-                    "CSS x Ambient": "V(CSS), P(A)",
-                    "Grassland x Reduced": "V(Gr), P(R)",
-                    "Grassland x Ambient": "V(Gr), P(A)"}
+                    "CSS x Reduced": "CSS, D",
+                    "CSS x Ambient": "CSS, A",
+                    "Grassland x Reduced": "Gr, D",
+                    "Grassland x Ambient": "Gr, A"}
 # Vegetation x Precipitation
 oldTreatments = renameTreatments.keys()
 # This dict records the old time points & treatment combinations as the keys
@@ -139,7 +139,8 @@ for group in TukeyGroups:
     dataColumn = AP_Km[group].dropna()
     dataToPlot.append(dataColumn)
 py.figure("AP, Km, timePoint x Vegetation", (20, 14))
-bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups)
+bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups,
+                showfliers=False)
 y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
 py.ylabel(y, fontfamily="serif", fontsize="x-large", fontstyle="oblique")
 py.xlabel("Time, Vegetation combination", fontfamily="serif",
@@ -156,10 +157,11 @@ for i in range(numOfTukeyGroups):
     py.annotate(TukeyLabels[i], (xMiddle, yVal), (3, 4), "data",
                 "offset pixels",
                 fontsize="large", fontstyle="italic", fontweight="bold")
-# Filling boxes in the boxplot
+# Filling boxes in the boxplot & thickening the median line of each box
 CSScolor = (34/255, 136/255, 51/255)  # green
 grassColor = (204/255, 187/255, 68/255)  # yellow
 white = (1, 1, 1)
+medianColor = (102/255, 204/255, 238/255)  # cyan
 ambientHatch = "*"
 reducedHatch = "//"
 for i in range(numOfTukeyGroups):
@@ -181,6 +183,9 @@ for i in range(numOfTukeyGroups):
     else:
         hatchType = None
     patch.set(facecolor=faceColor, hatch=hatchType)
+    median = bp["medians"][i]
+    median.set_linewidth(3)
+    median.set_color(medianColor)
 # Making a legend
 CSSpatch = Patch(facecolor=CSScolor)
 grassPatch = Patch(facecolor=grassColor)
@@ -194,7 +199,7 @@ else:
     vegLabels = []
 if "Precipitation" in mainEorInteraction:
     pptPatches = [ambientLegend, reducedLegend]
-    pptLabels = ["Ambient", "Reduced"]
+    pptLabels = ["Ambient", "Drought"]
 else:
     pptPatches = []
     pptLabels = []
@@ -226,7 +231,7 @@ def annotationFiles(enzyme):
     ezTukeyContents = os.listdir(ezTukeyFolder)
     annotatedFiles = []
     for file in ezTukeyContents:
-        if "annotated" in file:
+        if "annotated" in file and "worked out" not in file:
             annotatedFiles.append(file)
     return annotatedFiles
 
@@ -298,10 +303,10 @@ def TukeyGroupCols(enzyme, fileName):
     condi = (parameters.Parameter == parameter) & (parameters.Enzyme == enzyme)
     paramsOI = parameters[condi]
     paramOIogCols = paramsOI.columns.tolist()
-    for index, row in paramsOI.iterrows():
-        oldGroup = row["timePoint"]
-        if oldGroup in oldTreatments:
-            paramsOI.loc[index, "timePoint"] = renameTreatments[oldGroup]
+    # for index, row in paramsOI.iterrows():
+    #     oldGroup = row["timePoint"]
+    #     if oldGroup in oldTreatments:
+    #         paramsOI.loc[index, "timePoint"] = renameTreatments[oldGroup]
     if "x" in mainEorInteraction:
         splittedFactors = mainEorInteraction.split(" x ")
         factor1 = splittedFactors[0]
@@ -361,7 +366,8 @@ def plotBoxPlot(enzyme, fileName):
     mainEorInteraction = fileNameSplit[1]
     figName = "{0}, {1}, {2}".format(enzyme, parameter, mainEorInteraction)
     py.figure(figName, (20, 14))
-    bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups)
+    bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups,
+                    showfliers=False)
     if parameter == "Km":
         y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
     elif parameter == "Vmax":
@@ -377,6 +383,10 @@ def plotBoxPlot(enzyme, fileName):
         xAxis = "Vegetation, Precipitation combination"
     elif mainEorInteraction == "Three-way":
         xAxis = "Three-way combination"
+    elif mainEorInteraction == "timePoint":
+        xAxis = "Time"
+    else:
+        xAxis = mainEorInteraction
     py.xlabel(xAxis, fontfamily="serif", fontsize="x-large",
               fontstyle="oblique")
 
@@ -389,7 +399,7 @@ def plotBoxPlot(enzyme, fileName):
         yCap = topCap.get_ydata()
         xMiddle = xCap[0] + ((xCap[1] - xCap[0])/2)
         yVal = yCap[0]
-        py.annotate(TukeyLabels[i], (xMiddle, yVal), (3, 4), "data",
+        py.annotate(TukeyLabels[i], (xMiddle, yVal), (5, 4), "data",
                     "offset pixels", fontsize="large", fontstyle="oblique",
                     fontweight="bold")
 
@@ -408,22 +418,26 @@ def plotBoxPlot(enzyme, fileName):
         # Setting fill type for precipitation treatment
         if "A" in group:
             hatchType = ambientHatch
-        elif "R" in group:
+        elif "D" in group:
             hatchType = reducedHatch
         else:
             hatchType = None
         patch.set(facecolor=faceColor, hatch=hatchType)
+        median = bp["medians"][i]
+        median.set_linewidth(3)
+        median.set_color(medianColor)
 
     # Making a legend
-    if "Vegetation" in mainEorInteraction:
+    all3 = "Three-way"
+    if "Vegetation" in mainEorInteraction or all3 in mainEorInteraction:
         vegPatches = [CSSpatch, grassPatch]
         vegLabels = ["Coastal sage scrub", "Grassland"]
     else:
         vegPatches = []
         vegLabels = []
-    if "Precipitation" in mainEorInteraction:
+    if "Precipitation" in mainEorInteraction or all3 in mainEorInteraction:
         pptPatches = [ambientLegend, reducedLegend]
-        pptLabels = ["Ambient", "Reduced"]
+        pptLabels = ["Ambient", "Drought"]
     else:
         pptPatches = []
         pptLabels = []
@@ -435,3 +449,43 @@ def plotBoxPlot(enzyme, fileName):
     figPath = tukeyFolder/enzyme/figName
     py.savefig(figPath)
     return
+
+
+def plotAllBoxPlots(enzyme):
+    """
+    Plot all the box plots associated with all the interactions and/or main
+    effects associated with a particular enzyme.
+
+    Parameters
+    ----------
+    enzyme : str
+        Enzyme of interest. Will be used to choose the folder that contains the
+        Tukey results for this enzyme as well as the parameter values specific
+        to this enzyme.
+
+    Returns
+    -------
+    None.
+
+    """
+    annotateFiles = annotationFiles(enzyme)
+    numOfBoxPlots = len(annotateFiles)
+    for i in range(numOfBoxPlots):
+        plotBoxPlot(enzyme, annotateFiles[i])
+    return
+
+
+# %%
+# Purpose: Making remaining boxplots for AP & for remaining enzymes
+
+# (1) Making remaining boxplots for AP
+plotBoxPlot("AP", 'Km, Vegetation x Precipitation, groups, annotated.xlsx')
+plotBoxPlot("AP", 'Vmax, timePoint, groups, annotated.xlsx')
+
+# (2) Making boxplots for all enzymes
+plotAllBoxPlots("BG")
+plotAllBoxPlots("BX")
+plotAllBoxPlots("CBH")
+plotAllBoxPlots("LAP")
+plotAllBoxPlots("NAG")
+plotAllBoxPlots("PPO")
