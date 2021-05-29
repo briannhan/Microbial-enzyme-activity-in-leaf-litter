@@ -211,7 +211,8 @@ def Tukey(ez, pm):
             tukeyExcelName = "{0}, {1}.xlsx".format(pm, mainE)
             tukeyExcelPath = resultsFolder/tukeyExcelName
             tukeyDF = pd.read_csv(tukeyTxtPath, sep=",", header=0).dropna(1)
-            tukeyDF.to_excel(tukeyExcelPath, pm, index=False)
+            if not os.path.exists(tukeyExcelPath):
+                tukeyDF.to_excel(tukeyExcelPath, pm, index=False)
     return
 
 
@@ -321,7 +322,8 @@ def groups(enzyme):
         rawFileName = file.strip(".xlsx")
         outputName = "{0}, groups.xlsx".format(rawFileName)
         outputPath = resultsFolder/outputName
-        sigGroupsDF.to_excel(outputPath, index=False)
+        if not os.path.exists(outputPath):
+            sigGroupsDF.to_excel(outputPath, index=False)
     return
 
 
@@ -334,6 +336,27 @@ def groups(enzyme):
 # groups("NAG")
 # groups("PPO")
 '''And now, some manual annotation of which groups are significant or not.
+'''
+# %%
+# Purpose: Testing Precipitation as a main effect on CBH Vmax
+
+# (1) Reading in new ANOVA results file that's updated with non-significant
+# results from Tukey posthoc tests
+ANOVApath = statsFolder/'ANOVA, updated with Tukey.xlsx'
+ANOVAresults = ExcelFile(ANOVApath)
+VmaxANOVA = pd.read_excel(ANOVAresults, "Vmax").dropna(axis=1)
+VmaxANOVA = VmaxANOVA[VmaxANOVA.Enzyme != "MANOVA"]
+'''VmaxANOVA should easily feed into Tukey()
+'''
+
+# (2) Get new Tukey results and Tukey groups
+Tukey("CBH", "Vmax")
+groups("CBH")
+'''For some reason timePoint x Vegetation was significant for ANOVA and is also
+significant for Tukey but I didn't have the results file for it, so I didn't
+have the boxplot for it as well. But running this chunk just now gives me
+results for timePoint x Vegetation and Precipitation as a simple main effect
+for CBH Vmax. Interesting.
 '''
 # %%
 print(dt.now() - start)
