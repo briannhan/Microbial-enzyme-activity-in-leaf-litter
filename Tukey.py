@@ -231,15 +231,17 @@ the timePoint excel and text files are deleted manually because of this.
 '''Likewise, CBH Vmax shows no significant pairwise differences for
 timePoint x Precipitation despite ANOVA results indicating otherwise, so these
 files are deleted manually.
+
+So, I can also look at Precipitation as a simple main effect on CBH Vmax, then.
 '''
 # Tukey("CBH", "Km")
 
 # Tukey("LAP", "Km")
 
 # Tukey("NAG", "Vmax")
-'''And also, NAG Vmax shows no signifcant pairwise differences for vegetation
-as a main effect despite ANOVA results indicating otherwise. So, these are
-deleted accordingly.
+'''And also, NAG Vmax shows no signifcant pairwise differences for
+precipitation as a main effect despite ANOVA results indicating otherwise. So,
+these are deleted accordingly.
 '''
 # Tukey("NAG", "Km")
 
@@ -324,13 +326,13 @@ def groups(enzyme):
 
 
 # (2) Creating Excel files of significant groups using the function above
-groups("AP")
-groups("BG")
-groups("BX")
-groups("CBH")
-groups("LAP")
-groups("NAG")
-groups("PPO")
+# groups("AP")
+# groups("BG")
+# groups("BX")
+# groups("CBH")
+# groups("LAP")
+# groups("NAG")
+# groups("PPO")
 '''And now, some manual annotation of which groups are significant or not.
 '''
 # %%
