@@ -357,6 +357,10 @@ significant for Tukey but I didn't have the results file for it, so I didn't
 have the boxplot for it as well. But running this chunk just now gives me
 results for timePoint x Vegetation and Precipitation as a simple main effect
 for CBH Vmax. Interesting.
+
+Turns out, Precipitation is insignificant by Tukey posthoc despite really high
+significance as a main effect by ANOVA. So, Tukey posthoc results for
+Precipitation are deleted.
 '''
 # %%
 print(dt.now() - start)
