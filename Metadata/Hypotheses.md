@@ -31,7 +31,7 @@ Prediction 3: Litter with high lignin proportion will see an increase in concent
 ## Question 3: How does drought and litter chemistry interact to affect enzyme activity?
 Hypothesis 4: Following the Y-A-S framework, there is a clear tradeoff in energy, carbon, and other nutrients spent between resource acquisition traits and stress tolerance traits when microbes are in environments with high resources.
 
-Prediction 4: This tradeoff means that in low-lignin, high-resources litter that is under drought, enzyme concentrations will decrease (shown by a decrease in Vmax) due to a shift in resources from production of enzymes (a resource acquisition trait) to stress tolerance. In addition, microbial uptake (a resource acquisition trait) will also decreased, as indicated by a higher relative amount of reaction products (higher Km).
+Prediction 4: This tradeoff means that in low-lignin, high-resources litter that is under drought, enzyme concentrations will decrease (shown by a decrease in Vmax) due to a shift in resources from production of enzymes (a resource acquisition trait) to stress tolerance. In addition, microbial uptake (a resource acquisition trait) will also decrease, and this is opposed by decreasing production of reaction products. Thus, changes in Km are uncertain.
 
 
 
