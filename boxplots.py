@@ -14,6 +14,8 @@ import pandas as pd
 from matplotlib import pyplot as py
 from matplotlib.patches import Patch
 from pathlib import Path
+from datetime import datetime
+start = datetime.now()
 
 # Finding paths that contain Tukey results
 cwd = Path(os.getcwd())
@@ -145,6 +147,8 @@ y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
 py.ylabel(y, fontfamily="serif", fontsize="x-large", fontstyle="oblique")
 py.xlabel("Time, Vegetation combination", fontfamily="serif",
           fontsize="x-large", fontstyle="oblique")
+py.title("AP, Km, Time, Vegetation combination", fontfamily="serif",
+         fontsize="xx-large", fontstyle="oblique")
 numOfTukeyGroups = len(bp["boxes"])
 # Annotating Tukey labels
 for i in range(numOfTukeyGroups):
@@ -161,8 +165,9 @@ for i in range(numOfTukeyGroups):
 CSScolor = (34/255, 136/255, 51/255)  # green
 grassColor = (204/255, 187/255, 68/255)  # yellow
 white = (1, 1, 1)
-medianColor = (102/255, 204/255, 238/255)  # cyan
-ambientHatch = "*"
+# medianColor = (102/255, 204/255, 238/255)  # cyan
+medianColor = (0, 0, 0)  # black
+ambientHatch = "."
 reducedHatch = "//"
 for i in range(numOfTukeyGroups):
     series = dataToPlot[i]
@@ -370,8 +375,10 @@ def plotBoxPlot(enzyme, fileName):
                     showfliers=False)
     if parameter == "Km":
         y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
+        formattedParam = r"$K_{m}$"
     elif parameter == "Vmax":
         y = r"Enzyme amount, $Log_{10}$ $V_{max}$ ($log_{10}$ $(\mu mol/g/s)$)"
+        formattedParam = r"$V_{max}$"
     py.ylabel(y, fontfamily="serif", fontsize="x-large",
               fontstyle="oblique")
 
@@ -389,6 +396,9 @@ def plotBoxPlot(enzyme, fileName):
         xAxis = mainEorInteraction
     py.xlabel(xAxis, fontfamily="serif", fontsize="x-large",
               fontstyle="oblique")
+    plotTitle = r"{0}, {1}, {2}".format(enzyme, formattedParam, xAxis)
+    py.title(plotTitle, fontfamily="serif", fontsize="xx-large",
+             fontstyle="oblique")
 
     # Annotating Tukey labels
     numOfTukeyGroups = len(TukeyGroups)
@@ -489,3 +499,5 @@ plotAllBoxPlots("CBH")
 plotAllBoxPlots("LAP")
 plotAllBoxPlots("NAG")
 plotAllBoxPlots("PPO")
+# %%
+print(datetime.now() - start)
