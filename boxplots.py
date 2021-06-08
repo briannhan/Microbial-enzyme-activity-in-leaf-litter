@@ -140,13 +140,16 @@ dataToPlot = []
 for group in TukeyGroups:
     dataColumn = AP_Km[group].dropna()
     dataToPlot.append(dataColumn)
-py.figure("AP, Km, timePoint x Vegetation", (20, 14))
+AP_Kmcols = AP_Km.columns.tolist()
+py.figure("AP, Km, timePoint x Vegetation", (20, 10))
 bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups,
                 showfliers=False)
 y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
-py.ylabel(y, fontfamily="serif", fontsize="x-large", fontstyle="oblique")
+py.ylabel(y, fontfamily="serif", fontsize="xx-large", fontstyle="oblique")
+py.yticks(fontsize="xx-large")
 py.xlabel("Time, Vegetation combination", fontfamily="serif",
-          fontsize="x-large", fontstyle="oblique")
+          fontsize="xx-large", fontstyle="oblique")
+py.xticks(fontsize="xx-large")
 py.title("AP, Km, Time, Vegetation combination", fontfamily="serif",
          fontsize="xx-large", fontstyle="oblique")
 numOfTukeyGroups = len(bp["boxes"])
@@ -211,7 +214,8 @@ else:
 patches = vegPatches + pptPatches
 legendLabels = vegLabels + pptLabels
 py.legend(handles=patches, labels=legendLabels)
-py.savefig(APtukeyFolder/"AP, Km, timePoint x Vegetation")
+# py.savefig(APtukeyFolder/"AP, Km, timePoint x Vegetation",
+#             bbox_inches="tight")
 
 
 # (5) Abstracting the process into a few functions
@@ -363,6 +367,8 @@ def plotBoxPlot(enzyme, fileName):
     TukeyGroups = annotations["groups"].tolist()
     TukeyLabels = annotations["labels"].tolist()
     dataToPlot = []
+    paramsOIcols = paramsOI.columns.tolist()
+    assert paramsOIcols == TukeyGroups
     for group in TukeyGroups:
         dataColumn = paramsOI[group].dropna()
         dataToPlot.append(dataColumn)
@@ -370,17 +376,18 @@ def plotBoxPlot(enzyme, fileName):
     parameter = fileNameSplit[0]
     mainEorInteraction = fileNameSplit[1]
     figName = "{0}, {1}, {2}".format(enzyme, parameter, mainEorInteraction)
-    py.figure(figName, (20, 14))
+    py.figure(figName, (20, 10))
     bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups,
                     showfliers=False)
     if parameter == "Km":
-        y = r"Reaction products, $Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
+        y = r"$Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
         formattedParam = r"$K_{m}$"
     elif parameter == "Vmax":
         y = r"Enzyme amount, $Log_{10}$ $V_{max}$ ($log_{10}$ $(\mu mol/g/s)$)"
         formattedParam = r"$V_{max}$"
-    py.ylabel(y, fontfamily="serif", fontsize="x-large",
+    py.ylabel(y, fontfamily="serif", fontsize="xx-large",
               fontstyle="oblique")
+    py.yticks(fontsize="xx-large")
 
     if mainEorInteraction == "timePoint x Vegetation":
         xAxis = "Time, Vegetation combination"
@@ -389,13 +396,17 @@ def plotBoxPlot(enzyme, fileName):
     elif mainEorInteraction == "Vegetation x Precipitation":
         xAxis = "Vegetation, Precipitation combination"
     elif mainEorInteraction == "Three-way":
-        xAxis = "Three-way combination"
+        xAxis = "Time & treatment combination"
     elif mainEorInteraction == "timePoint":
         xAxis = "Time"
     else:
         xAxis = mainEorInteraction
-    py.xlabel(xAxis, fontfamily="serif", fontsize="x-large",
+    py.xlabel(xAxis, fontfamily="serif", fontsize="xx-large",
               fontstyle="oblique")
+    if mainEorInteraction != "Three-way":
+        py.xticks(fontsize="xx-large")
+    elif mainEorInteraction == "Three-way":
+        py.xticks(fontsize="large")
     plotTitle = r"{0}, {1}, {2}".format(enzyme, formattedParam, xAxis)
     py.title(plotTitle, fontfamily="serif", fontsize="xx-large",
              fontstyle="oblique")
@@ -457,7 +468,7 @@ def plotBoxPlot(enzyme, fileName):
         py.legend(handles=patches, labels=legendLabels)
 
     figPath = tukeyFolder/enzyme/figName
-    py.savefig(figPath)
+    py.savefig(figPath, bbox_inches="tight", pad_inches=0.04)
     return
 
 
@@ -489,15 +500,15 @@ def plotAllBoxPlots(enzyme):
 # Purpose: Making remaining boxplots for AP & for remaining enzymes
 
 # (1) Making remaining boxplots for AP
-plotBoxPlot("AP", 'Km, Vegetation x Precipitation, groups, annotated.xlsx')
-plotBoxPlot("AP", 'Vmax, timePoint, groups, annotated.xlsx')
+# plotBoxPlot("AP", 'Km, Vegetation x Precipitation, groups, annotated.xlsx')
+# plotBoxPlot("AP", 'Vmax, timePoint, groups, annotated.xlsx')
 
 # (2) Making boxplots for all enzymes
-plotAllBoxPlots("BG")
-plotAllBoxPlots("BX")
-plotAllBoxPlots("CBH")
-plotAllBoxPlots("LAP")
-plotAllBoxPlots("NAG")
-plotAllBoxPlots("PPO")
+# plotAllBoxPlots("BG")
+# plotAllBoxPlots("BX")
+# plotAllBoxPlots("CBH")
+# plotAllBoxPlots("LAP")
+# plotAllBoxPlots("NAG")
+# plotAllBoxPlots("PPO")
 # %%
 print(datetime.now() - start)
