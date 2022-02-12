@@ -49,11 +49,11 @@ renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
                     "0 x Ambient": "1, A", "3 x Ambient": "2, A",
                     "5 x Ambient": "3, A", "6 x Ambient": "4, A",
                     # timePoint x Precipitation
-                    "0 x Reduced x Grassland": "1, Gr, D",
+                    "0 x Reduced x Grassland": "1, Gr, D",  # D = Drought
                     "3 x Reduced x Grassland": "2, Gr, D",
                     "5 x Reduced x Grassland": "3, Gr, D",
                     "6 x Reduced x Grassland": "4, Gr, D",
-                    "0 x Ambient x Grassland": "1, Gr, A",
+                    "0 x Ambient x Grassland": "1, Gr, A",  # A = Ambient
                     "3 x Ambient x Grassland": "2, Gr, A",
                     "5 x Ambient x Grassland": "3, Gr, A",
                     "6 x Ambient x Grassland": "4, Gr, A",
@@ -501,14 +501,15 @@ def plotAllBoxPlots(enzyme):
 
 # (1) Making remaining boxplots for AP
 # plotBoxPlot("AP", 'Km, Vegetation x Precipitation, groups, annotated.xlsx')
-plotBoxPlot("AP", 'Vmax, timePoint, groups, annotated.xlsx')
+# plotBoxPlot("AP", 'Vmax, timePoint, groups, annotated.xlsx')
 
 # (2) Making boxplots for all enzymes
-plotAllBoxPlots("BG")
-plotAllBoxPlots("BX")
-plotAllBoxPlots("CBH")
-plotAllBoxPlots("LAP")
-plotAllBoxPlots("NAG")
-plotAllBoxPlots("PPO")
+# plotAllBoxPlots("BG")
+# plotAllBoxPlots("BX")
+# plotAllBoxPlots("CBH")
+# plotAllBoxPlots("LAP")
+# plotAllBoxPlots("NAG")
+# plotAllBoxPlots("PPO")
+# plotBoxPlot("PPO", "Vmax, Vegetation, groups, annotated.xlsx")
 # %%
 print(datetime.now() - start)

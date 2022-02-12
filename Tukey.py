@@ -363,4 +363,38 @@ significance as a main effect by ANOVA. So, Tukey posthoc results for
 Precipitation are deleted.
 '''
 # %%
+# Purpose: Testing Vegetation as a main effect on PPO Vmax. This is because I
+# did not find much of a significant difference when testing for a three-way
+# interaction, despite ANOVA stating that there is a significant three-way
+# interaction. There were also no other significant interactions or main
+# effects aside from Vegetation.
+
+# (1) Performing Tukey's on PPO Vmax and exporting the results
+VmaxPPO = parameters[(parameters.Parameter == "Vmax")
+                     & (parameters.Enzyme == "PPO")]
+vegPPOresults = MC(VmaxPPO.value, VmaxPPO.Vegetation).tukeyhsd().summary()
+
+PPOfolder = statsFolder/"Tukey posthoc"/"PPO"
+PPOvegTukeyTxtName = "{0}, {1}.txt".format("Vmax", "Vegetation")
+PPOvegTukeyTxtPath = PPOfolder/PPOvegTukeyTxtName
+PPOtxtFile = open(PPOvegTukeyTxtPath, "w")
+PPOresultsRows = len(vegPPOresults)
+for i in range(PPOresultsRows):
+    row = vegPPOresults[i]
+    for value in row:
+        value = str(value)
+        PPOtxtFile.write(value)
+        PPOtxtFile.write(",")
+    PPOtxtFile.write("\n")
+PPOtxtFile.close()
+
+# Writing Tukey results out to an Excel file
+PPOvegTukeyExcelName = "{0}, {1}.xlsx".format("Vmax", "Vegetation")
+PPOvegTukeyExcelPath = PPOfolder/PPOvegTukeyExcelName
+PPOvegTukeyDF = pd.read_csv(PPOvegTukeyTxtPath, sep=",", header=0).dropna(1)
+PPOvegTukeyDF.to_excel(PPOvegTukeyExcelPath, "Vmax", index=False)
+
+# (2) Exporting groups
+groups("PPO")
+# %%
 print(dt.now() - start)
