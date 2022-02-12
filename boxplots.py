@@ -383,7 +383,7 @@ def plotBoxPlot(enzyme, fileName):
         y = r"$Log_{10}$ $K_m$ ($log_{10}$ $(\mu M)$)"
         formattedParam = r"$K_{m}$"
     elif parameter == "Vmax":
-        y = r"Enzyme amount, $Log_{10}$ $V_{max}$ ($log_{10}$ $(\mu mol/g/s)$)"
+        y = r"Enzyme amount, $Log_{10}$ $V_{max}$ ($log_{10}$ $(\mu mol/g/h)$)"
         formattedParam = r"$V_{max}$"
     py.ylabel(y, fontfamily="serif", fontsize="xx-large",
               fontstyle="oblique")
@@ -501,14 +501,14 @@ def plotAllBoxPlots(enzyme):
 
 # (1) Making remaining boxplots for AP
 # plotBoxPlot("AP", 'Km, Vegetation x Precipitation, groups, annotated.xlsx')
-# plotBoxPlot("AP", 'Vmax, timePoint, groups, annotated.xlsx')
+plotBoxPlot("AP", 'Vmax, timePoint, groups, annotated.xlsx')
 
 # (2) Making boxplots for all enzymes
-# plotAllBoxPlots("BG")
-# plotAllBoxPlots("BX")
-# plotAllBoxPlots("CBH")
-# plotAllBoxPlots("LAP")
-# plotAllBoxPlots("NAG")
-# plotAllBoxPlots("PPO")
+plotAllBoxPlots("BG")
+plotAllBoxPlots("BX")
+plotAllBoxPlots("CBH")
+plotAllBoxPlots("LAP")
+plotAllBoxPlots("NAG")
+plotAllBoxPlots("PPO")
 # %%
 print(datetime.now() - start)
