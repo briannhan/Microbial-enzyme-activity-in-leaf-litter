@@ -40,3 +40,6 @@ Ashish:
 1. Make all figures, including additional figures from my calculated Vmax values, incorporating my statistical analysis wherever needed
 2. Send me the data structure for FTIR and CAZyme, and get back to me on how to read the y-axis of the CAZyme figures he has so far
 
+## Other notes
+
+He said that carbohydrates glycosidic bonds that showed in FTIR, are indicative of cellulose.
