@@ -35,7 +35,8 @@ functional = functionalOG.drop(columns=["carbo1", "carbo3", "amide1",
                                         "amide2"])
 # %%
 # Renaming independent variable columns and the values in these columns
-renameColsDict = {"veg": "Vegetation", "prec": "Precip", "time": "timePoint"}
+renameColsDict = {"veg": "Vegetation", "prec": "Precip", "time": "timePoint",
+                  "carbo2": "glycosidicBond", "carbo4": "C_O_stretching"}
 functional.rename(renameColsDict, axis="columns", inplace=True)
 
 # Renaming the values in each independent variable column
@@ -57,6 +58,15 @@ for index, row in functional.iterrows():
 # Exporting the data. I'm wondering if I have to analyze lignin later, so just
 # to clarify, this data only contains spectral area of carbohydrates and
 # proteins
+
+# Collapsing the functional group columns into 2 columns: the functional group
+# and the spectral area occupied by the functional group
+functionalGroupsOG = ["glycosidicBond", "C_O_stretching", "alkane", "lipid",
+                      "carboEster", "amide"]
+idVars = ["id", "Vegetation", "Precip", "timePoint"]
+functional = functional.melt(idVars, functionalGroupsOG, "functionalGroup")
+
+# Exporting the newly wrangled dataframe
 fileName = "Carbohydrates and Proteins FTIR.xlsx"
 filePath = litterChemFolderPath/fileName
 functional.to_excel(filePath, index=False)
