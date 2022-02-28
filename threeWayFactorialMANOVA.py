@@ -34,32 +34,6 @@ dataFolder = cwd/'Enzyme activity data'
 dataDirsFiles = os.listdir(dataFolder)
 paramsPath = dataFolder/'Parameters - log 10 transformed.xlsx'
 parameters = pd.read_excel(paramsPath)
-
-# Loading in litter chemistry data
-litterChemFolder = cwd/"Litter chemistry"
-litterChemPath = litterChemFolder/"Carbohydrates and Proteins FTIR.xlsx"
-litterChem = pd.read_excel(litterChemPath)
-
-# Wrangling the litter chemistry data to have the same columns as the enzyme
-# parameters dataframe to allow the litter chemistry data to be tested using
-# the same ANOVA code
-litterChem.rename({"id": "ID", "functionalGroup": "Enzyme"},
-                  axis="columns", inplace=True)
-# "functionalGroup" is renamed as "Enzyme" so that this dataframe can be merged
-# with the Michaelis-Menten parameters dataframe and ANOVAs can be performed
-carbohydrate = ["glycosidicBond", "C_O_stretching", "carboEster"]
-for index, row in litterChem.iterrows():
-    functionalGroup = row.Enzyme
-    if functionalGroup in carbohydrate:
-        litterChem.loc[index, "Parameter"] = "Carbohydrate"
-    elif functionalGroup == "amide":
-        litterChem.loc[index, "Parameter"] = "Protein"
-    elif functionalGroup == "lipid" or functionalGroup == "alkane":
-        litterChem.loc[index, "Parameter"] = functionalGroup
-
-# Merging the litter chemistry and Michaelis-Menten parameter dataframes into
-# a single dataframe
-parameters = pd.concat([parameters, litterChem], join="outer")
 # %%
 # Purpose: Performing a factorial MANOVA with the factors being time point,
 # vegetation, and precipitation. This factorial MANOVA is used as exploratory
@@ -69,16 +43,16 @@ following order: factorial MANOVA for all enzymes, followed by factorial
 ANOVAs & Tukey for individual enzymes. So Imma do that instead'''
 
 # (1) Convert the parameters dataframe into a MultiIndex
-# parameters = parameters.drop(columns=["Transformation"])
-# indices = ["timePoint", "ID", "Vegetation", "Precip", "Replicate", "Enzyme",
-#            "Parameter"]
-# paramsMulInd = parameters.set_index(keys=indices)
-# paramsUnstack1 = paramsMulInd.unstack("Parameter")
-# paramsUnstack2 = paramsUnstack1.unstack("Enzyme")
-# indicesPivot = ["timePoint", "ID", "Vegetation", "Precip", "Replicate"]
-# indicesCols = ["Enzyme", "Parameter"]
-# paramsPivot = parameters.pivot(index=indicesPivot, columns=indicesCols,
-#                                values="value")
+parameters = parameters.drop(columns=["Transformation"])
+indices = ["timePoint", "ID", "Vegetation", "Precip", "Replicate", "Enzyme",
+           "Parameter"]
+paramsMulInd = parameters.set_index(keys=indices)
+paramsUnstack1 = paramsMulInd.unstack("Parameter")
+paramsUnstack2 = paramsUnstack1.unstack("Enzyme")
+indicesPivot = ["timePoint", "ID", "Vegetation", "Precip", "Replicate"]
+indicesCols = ["Enzyme", "Parameter"]
+paramsPivot = parameters.pivot(index=indicesPivot, columns=indicesCols,
+                               values="value")
 '''So I accomplished the same thing with both pivot and unstack, just that
 they have slightly different levels with unstack resulting in the original
 value column being an extra level compared to pivot'''
@@ -90,32 +64,32 @@ resulted in NaNs all over the place that statsmodels do not like and so I
 couldn't run my MANOVA. So I have to create 2 separate dataframes, 1 for
 hydrolase, and 1 for oxidase, and then merge them together.
 '''
-# params1Level = paramsPivot.copy()
-# params1Level.columns = params1Level.columns.map("_".join).str.strip("_")
-# params1Level.reset_index(inplace=True)
-# paramsHydro = params1Level.drop(columns=["Replicate", "PPO_Vmax", "PPO_Km"])
-# paramsHydro = paramsHydro.dropna()
-# hydroColsToDrop = ["AG_Vmax", "AP_Vmax", "BG_Vmax", "BX_Vmax", "CBH_Vmax",
-#                    "LAP_Vmax", "NAG_Vmax", "AG_Km", "AP_Km", "BG_Km", "BX_Km",
-#                    "CBH_Km", "LAP_Km", "NAG_Km"]
+params1Level = paramsPivot.copy()
+params1Level.columns = params1Level.columns.map("_".join).str.strip("_")
+params1Level.reset_index(inplace=True)
+paramsHydro = params1Level.drop(columns=["Replicate", "PPO_Vmax", "PPO_Km"])
+paramsHydro = paramsHydro.dropna()
+hydroColsToDrop = ["AG_Vmax", "AP_Vmax", "BG_Vmax", "BX_Vmax", "CBH_Vmax",
+                   "LAP_Vmax", "NAG_Vmax", "AG_Km", "AP_Km", "BG_Km", "BX_Km",
+                   "CBH_Km", "LAP_Km", "NAG_Km"]
 
-# paramsOxi = params1Level.drop(columns=hydroColsToDrop)
-# paramsOxi = paramsOxi.dropna()
-# oxiIndices = ["timePoint", "ID", "Vegetation", "Precip"]
-# oxiPivotVals = ["PPO_Vmax", "PPO_Km"]
-# paramsOxi["Replicate"] = paramsOxi["Replicate"].astype(str)
-# paramsOxiPivot = paramsOxi.pivot(oxiIndices, "Replicate", oxiPivotVals)
-# paramsOxiPivot.columns = paramsOxiPivot.columns.map("_".join).str.strip("_")
-# paramsOxiPivot.columns = paramsOxiPivot.columns.str.strip(".0")
-# paramsOxiPivot = paramsOxiPivot.dropna(axis="columns")
-# paramsOxiPivot.reset_index(inplace=True)
-# paramsWide = pd.merge(paramsHydro, paramsOxiPivot, on=["timePoint", "ID",
-#                                                        "Vegetation", "Precip"])
+paramsOxi = params1Level.drop(columns=hydroColsToDrop)
+paramsOxi = paramsOxi.dropna()
+oxiIndices = ["timePoint", "ID", "Vegetation", "Precip"]
+oxiPivotVals = ["PPO_Vmax", "PPO_Km"]
+paramsOxi["Replicate"] = paramsOxi["Replicate"].astype(str)
+paramsOxiPivot = paramsOxi.pivot(oxiIndices, "Replicate", oxiPivotVals)
+paramsOxiPivot.columns = paramsOxiPivot.columns.map("_".join).str.strip("_")
+paramsOxiPivot.columns = paramsOxiPivot.columns.str.strip(".0")
+paramsOxiPivot = paramsOxiPivot.dropna(axis="columns")
+paramsOxiPivot.reset_index(inplace=True)
+paramsWide = pd.merge(paramsHydro, paramsOxiPivot, on=["timePoint", "ID",
+                                                        "Vegetation", "Precip"])
 
 # (3) Performing the MANOVA analysis
-# manovaFormula = "AG_Vmax + AG_Km + AP_Vmax + AP_Km + BG_Vmax + BG_Km + BX_Vmax + BX_Km + CBH_Vmax + CBH_Km + LAP_Vmax + LAP_Km + NAG_Vmax + NAG_Km + PPO_Vmax_1 + PPO_Vmax_2 + PPO_Km_1 + PPO_Km_2 ~ C(timePoint, Sum)*C(Vegetation, Sum)*C(Precip, Sum)"
-# manovaModel = MANOVA.from_formula(formula=manovaFormula, data=paramsWide)
-# manovaResults = manovaModel.mv_test()
+manovaFormula = "AG_Vmax + AG_Km + AP_Vmax + AP_Km + BG_Vmax + BG_Km + BX_Vmax + BX_Km + CBH_Vmax + CBH_Km + LAP_Vmax + LAP_Km + NAG_Vmax + NAG_Km + PPO_Vmax_1 + PPO_Vmax_2 + PPO_Km_1 + PPO_Km_2 ~ C(timePoint, Sum)*C(Vegetation, Sum)*C(Precip, Sum)"
+manovaModel = MANOVA.from_formula(formula=manovaFormula, data=paramsWide)
+manovaResults = manovaModel.mv_test()
 # %%
 # Purpose: Carry out three-way ANOVA on AG's Vmax as a proof of concept to code
 # ANOVAs for the remaining 7 enzymes. This process will be run iteratively if
@@ -438,6 +412,35 @@ results2KmPPO = factorialANOVA("PPO", "Km", None, timeXppt, timeXveg, vegXppt)
 # vegetation x precipitation and timePoint x precipitation, and testing for the
 # remaining significant two-way interaction, timePoint x vegetation
 results3KmPPO = factorialANOVA("PPO", "Km", None, timeXveg)
+# %%
+# Purpose: Loading in and wrangling the litter chemistry data to also perform
+# ANOVAs
+
+# (1) Loading in litter chemistry data
+litterChemFolder = cwd/"Litter chemistry"
+litterChemPath = litterChemFolder/"Carbohydrates and Proteins FTIR.xlsx"
+litterChem = pd.read_excel(litterChemPath)
+
+# (2) Wrangling the litter chemistry data to have the same columns as the
+# enzyme parameters dataframe to allow the litter chemistry data to be tested
+# using the same ANOVA code
+litterChem.rename({"id": "ID", "functionalGroup": "Enzyme"},
+                  axis="columns", inplace=True)
+# "functionalGroup" is renamed as "Enzyme" so that this dataframe can be merged
+# with the Michaelis-Menten parameters dataframe and ANOVAs can be performed
+carbohydrate = ["glycosidicBond", "C_O_stretching", "carboEster"]
+for index, row in litterChem.iterrows():
+    functionalGroup = row.Enzyme
+    if functionalGroup in carbohydrate:
+        litterChem.loc[index, "Parameter"] = "Carbohydrate"
+    elif functionalGroup == "amide":
+        litterChem.loc[index, "Parameter"] = "Protein"
+    elif functionalGroup == "lipid" or functionalGroup == "alkane":
+        litterChem.loc[index, "Parameter"] = functionalGroup
+
+# (3) Merging the litter chemistry and Michaelis-Menten parameter dataframes
+# into a single dataframe
+parameters = pd.concat([parameters, litterChem], join="outer")
 # %%
 # Purpose: Running factorial ANOVAs for glycosidic bonds
 
