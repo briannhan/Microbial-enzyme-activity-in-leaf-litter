@@ -350,8 +350,8 @@ VmaxANOVA = VmaxANOVA[VmaxANOVA.Enzyme != "MANOVA"]
 '''
 
 # (2) Get new Tukey results and Tukey groups
-Tukey("CBH", "Vmax")
-groups("CBH")
+# Tukey("CBH", "Vmax")
+# groups("CBH")
 '''For some reason timePoint x Vegetation was significant for ANOVA and is also
 significant for Tukey but I didn't have the results file for it, so I didn't
 have the boxplot for it as well. But running this chunk just now gives me
@@ -374,27 +374,85 @@ VmaxPPO = parameters[(parameters.Parameter == "Vmax")
                      & (parameters.Enzyme == "PPO")]
 vegPPOresults = MC(VmaxPPO.value, VmaxPPO.Vegetation).tukeyhsd().summary()
 
-PPOfolder = statsFolder/"Tukey posthoc"/"PPO"
-PPOvegTukeyTxtName = "{0}, {1}.txt".format("Vmax", "Vegetation")
-PPOvegTukeyTxtPath = PPOfolder/PPOvegTukeyTxtName
-PPOtxtFile = open(PPOvegTukeyTxtPath, "w")
-PPOresultsRows = len(vegPPOresults)
-for i in range(PPOresultsRows):
-    row = vegPPOresults[i]
-    for value in row:
-        value = str(value)
-        PPOtxtFile.write(value)
-        PPOtxtFile.write(",")
-    PPOtxtFile.write("\n")
-PPOtxtFile.close()
+# PPOfolder = statsFolder/"Tukey posthoc"/"PPO"
+# PPOvegTukeyTxtName = "{0}, {1}.txt".format("Vmax", "Vegetation")
+# PPOvegTukeyTxtPath = PPOfolder/PPOvegTukeyTxtName
+# PPOtxtFile = open(PPOvegTukeyTxtPath, "w")
+# PPOresultsRows = len(vegPPOresults)
+# for i in range(PPOresultsRows):
+#     row = vegPPOresults[i]
+#     for value in row:
+#         value = str(value)
+#         PPOtxtFile.write(value)
+#         PPOtxtFile.write(",")
+#     PPOtxtFile.write("\n")
+# PPOtxtFile.close()
 
 # Writing Tukey results out to an Excel file
-PPOvegTukeyExcelName = "{0}, {1}.xlsx".format("Vmax", "Vegetation")
-PPOvegTukeyExcelPath = PPOfolder/PPOvegTukeyExcelName
-PPOvegTukeyDF = pd.read_csv(PPOvegTukeyTxtPath, sep=",", header=0).dropna(1)
-PPOvegTukeyDF.to_excel(PPOvegTukeyExcelPath, "Vmax", index=False)
+# PPOvegTukeyExcelName = "{0}, {1}.xlsx".format("Vmax", "Vegetation")
+# PPOvegTukeyExcelPath = PPOfolder/PPOvegTukeyExcelName
+# PPOvegTukeyDF = pd.read_csv(PPOvegTukeyTxtPath, sep=",", header=0).dropna(1)
+# PPOvegTukeyDF.to_excel(PPOvegTukeyExcelPath, "Vmax", index=False)
 
 # (2) Exporting groups
-groups("PPO")
+# groups("PPO")
+# %%
+# Purpose: Writing a function that abstracts the process of exporting Tukey
+# results. This will be used in case I want to test for interactions/main
+# effects not present in the first Tukey test function.
+
+
+def exportTukeyResults(endFolder, parameter, indeVar, resultsTable):
+    """
+    Exports 2 files, a .txt file and an Excel file, that contains the raw Tukey
+    results (containing difference in means, p-values, etc) from a Tukey test.
+    These 2 files are copies of each other, with the results first exported
+    into the .txt file and which will then be read and re-exported into an
+    Excel file, which should be easier to handle and read
+
+    Parameters
+    ----------
+    endFolder : str
+        The name of the folder that these 2 files will end up in.
+    parameter : str
+        The parameter of interest. For enzymes, they will either be Vmax or Km.
+        For litter chemistry, they will be the functional group of interest.
+        This is the dependent variable that will be tested.
+    indeVar : str
+        The independent variable (or interaction) of interest. This will be
+        used to delineate the different groups in this test.
+    resultsTable : statsmodel table (format name unknown)
+        The table containing Tukey results as outputted by statsmodel. Results
+        will be read from this table and exported into the 2 export files.
+
+    Returns
+    -------
+    None
+
+    """
+    folderPath = statsFolder/"Tukey posthoc"/endFolder
+
+    # Creating text file
+    txtName = "{0}, {1}.txt".format(parameter, indeVar)
+    txtPath = folderPath/txtName
+    txtFile = open(txtPath, "w")
+    resultsRows = len(resultsTable)
+    for i in range(resultsRows):
+        row = resultsTable[i]
+        for element in row:
+            element = str(element)
+            txtFile.write(element)
+            txtFile.write(',')
+        txtFile.write('\n')
+    txtFile.close()
+
+    # Creating Excel file
+    resultsDF = pd.read_csv(txtPath, sep=",")
+    excelName = "{0}, {1}.xlsx".format(parameter, indeVar)
+    excelPath = folderPath/excelName
+    resultsDF.to_excel(excelPath, index=False)
+    return
+
+
 # %%
 print(dt.now() - start)
