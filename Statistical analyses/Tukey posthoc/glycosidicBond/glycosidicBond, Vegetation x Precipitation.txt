@@ -1,0 +1,7 @@
+group1,group2,meandiff,p-adj,lower,upper,reject,
+Grassland x Ambient,Grassland x Reduced,-1.3207,0.0168,-2.4596,-0.1817,True,
+Grassland x Ambient,Shrub x Ambient,-4.1294,0.001,-5.2683,-2.9904,True,
+Grassland x Ambient,Shrub x Reduced,-4.2038,0.001,-5.3428,-3.0649,True,
+Grassland x Reduced,Shrub x Ambient,-2.8087,0.001,-3.9477,-1.6697,True,
+Grassland x Reduced,Shrub x Reduced,-2.8831,0.001,-4.0221,-1.7442,True,
+Shrub x Ambient,Shrub x Reduced,-0.0744,0.9,-1.2134,1.0645,False,

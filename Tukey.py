@@ -38,6 +38,11 @@ VmaxANOVA = pd.read_excel(ANOVAresults, "Vmax").dropna(axis=1)
 VmaxANOVA = VmaxANOVA[VmaxANOVA.Enzyme != "MANOVA"]
 KmANOVA = pd.read_excel(ANOVAresults, "Km").dropna(axis=1)
 KmANOVA = KmANOVA[KmANOVA.Enzyme != "MANOVA"]
+litterChemANOVA = pd.read_excel(ANOVAresults, "litterChemistry").dropna(1)
+functionalGroups = litterChemANOVA.functionalGroup.tolist()
+carboFG = functionalGroups[:3]
+miscFG = functionalGroups[3:5]
+litterChemANOVA.rename(columns={"functionalGroup": "Enzyme"}, inplace=True)
 ANOVAcols = VmaxANOVA.columns.tolist()
 mainEffects = ANOVAcols[1:4]
 interactions = ANOVAcols[4:]
@@ -113,6 +118,8 @@ def Tukey(ez, pm):
         ANOVAdf = VmaxANOVA
     elif pm == "Km":
         ANOVAdf = KmANOVA
+    elif pm in functionalGroups:
+        ANOVAdf = litterChemANOVA
 
     ezANOVAind = ANOVAdf[ANOVAdf.Enzyme == ez].index.tolist()[0]
     conditions = (parameters.Enzyme == ez) & (parameters.Parameter == pm)
@@ -342,10 +349,10 @@ def groups(enzyme):
 
 # (1) Reading in new ANOVA results file that's updated with non-significant
 # results from Tukey posthoc tests
-ANOVApath = statsFolder/'ANOVA, updated with Tukey.xlsx'
-ANOVAresults = ExcelFile(ANOVApath)
-VmaxANOVA = pd.read_excel(ANOVAresults, "Vmax").dropna(axis=1)
-VmaxANOVA = VmaxANOVA[VmaxANOVA.Enzyme != "MANOVA"]
+# ANOVApath = statsFolder/'ANOVA, updated with Tukey.xlsx'
+# ANOVAresults = ExcelFile(ANOVApath)
+# VmaxANOVA = pd.read_excel(ANOVAresults, "Vmax").dropna(axis=1)
+# VmaxANOVA = VmaxANOVA[VmaxANOVA.Enzyme != "MANOVA"]
 '''VmaxANOVA should easily feed into Tukey()
 '''
 
@@ -454,5 +461,44 @@ def exportTukeyResults(endFolder, parameter, indeVar, resultsTable):
     return
 
 
+# %%
+# Conducting preliminary Tukey post-hoc on significant interactions/effects
+# on litter chemistry. I may conduct more Tukey post-hoc on other effects later
+
+# (1) Reading in the litter chemistry data and attaching it to the
+# Michaelis-Menten parameters dataframe
+litterChemPath = cwd/"Litter chemistry"/"Carbohydrates and Proteins FTIR.xlsx"
+litterChem = pd.read_excel(litterChemPath)
+litterChem.rename(columns={"functionalGroup": "Enzyme", "id": "ID"},
+                  inplace=True)
+litterChem["timePoint"] = litterChem["timePoint"].astype(str)
+litterChem["Parameter"] = litterChem["Enzyme"]
+parameters = pd.concat([parameters, litterChem])
+
+# (2) Performing Tukey tests and exporting both raw Tukey test results and
+# groups from each test result file
+
+# Testing for carbohydrates
+Tukey("glycosidicBond", "glycosidicBond")
+groups("glycosidicBond")
+
+Tukey("C_O_stretching", "C_O_stretching")
+groups("C_O_stretching")
+
+# Testing for pectins and hemicellulose, which are subtypes of carbohydrates
+Tukey("carboEster", "carboEster")
+groups("carboEster")
+
+# Testing for lipids
+Tukey("lipid", "lipid")
+groups("lipid")
+
+# Testing for other alkanes
+Tukey("alkane", "alkane")
+groups("alkane")
+
+# Testing for proteins
+Tukey("amide", "amide")
+groups("amide")
 # %%
 print(dt.now() - start)

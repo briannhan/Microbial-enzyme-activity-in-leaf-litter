@@ -1,0 +1,2 @@
+group1,group2,meandiff,p-adj,lower,upper,reject,
+Ambient,Reduced,-0.4086,0.066,-0.845,0.0279,False,

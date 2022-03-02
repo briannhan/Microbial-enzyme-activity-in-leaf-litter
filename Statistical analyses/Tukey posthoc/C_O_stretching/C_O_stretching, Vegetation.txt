@@ -1,0 +1,2 @@
+group1,group2,meandiff,p-adj,lower,upper,reject,
+Grassland,Shrub,1.2627,0.001,0.9489,1.5765,True,

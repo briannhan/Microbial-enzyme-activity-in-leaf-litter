@@ -203,11 +203,9 @@ def factorialANOVA(enzyme, parameter, threeWay=None, twoWay1=None, twoWay2=None,
         results = anova_lm(model, typ=2)
 
     # Calculating eta-squared and partial eta-squared
-    totalSS = results.sum_sq.sum()
     residualSS = results.loc["Residual", "sum_sq"]
     for index, row in results.iterrows():
         rowSS = row.sum_sq
-        results.loc[index, "eta2"] = rowSS/totalSS
         results.loc[index, "partialEta2"] = rowSS/(residualSS + rowSS)
     return results
 
