@@ -25,6 +25,7 @@ import os
 from datetime import datetime as dt
 from statsmodels.sandbox.stats.multicomp import MultiComparison as MC
 from pathlib import Path
+import cld
 
 # (2) Reading in ANOVA results
 start = dt.now()
@@ -331,6 +332,10 @@ def groups(enzyme):
         outputPath = resultsFolder/outputName
         if not os.path.exists(outputPath):
             sigGroupsDF.to_excel(outputPath, index=False)
+        cldDF = cld.main(results, 0.05)
+        cldName = "{0}, groups, annotated.xlsx".format(rawFileName)
+        cldPath = resultsFolder/cldName
+        cldDF.to_excel(cldPath, index=False)
     return
 
 
@@ -340,7 +345,7 @@ def groups(enzyme):
 # groups("BX")
 # groups("CBH")
 # groups("LAP")
-# groups("NAG")
+groups("NAG")
 # groups("PPO")
 '''And now, some manual annotation of which groups are significant or not.
 '''
@@ -479,26 +484,26 @@ parameters = pd.concat([parameters, litterChem])
 # groups from each test result file
 
 # Testing for carbohydrates
-Tukey("glycosidicBond", "glycosidicBond")
-groups("glycosidicBond")
+# Tukey("glycosidicBond", "glycosidicBond")
+# groups("glycosidicBond")
 
-Tukey("C_O_stretching", "C_O_stretching")
-groups("C_O_stretching")
+# Tukey("C_O_stretching", "C_O_stretching")
+# groups("C_O_stretching")
 
 # Testing for pectins and hemicellulose, which are subtypes of carbohydrates
-Tukey("carboEster", "carboEster")
-groups("carboEster")
+# Tukey("carboEster", "carboEster")
+# groups("carboEster")
 
 # Testing for lipids
-Tukey("lipid", "lipid")
-groups("lipid")
+# Tukey("lipid", "lipid")
+# groups("lipid")
 
 # Testing for other alkanes
-Tukey("alkane", "alkane")
-groups("alkane")
+# Tukey("alkane", "alkane")
+# groups("alkane")
 
 # Testing for proteins
-Tukey("amide", "amide")
-groups("amide")
+# Tukey("amide", "amide")
+# groups("amide")
 # %%
 print(dt.now() - start)
