@@ -30,14 +30,15 @@ def main(df, alpha=0.05):
 
     Parameters
     ----------
-    df : TYPE
-        DESCRIPTION.
-    alpha : TYPE, optional
-        DESCRIPTION. The default is 0.05.
+    df : Pandas dataframe
+        Pandas dataframe containing raw Tukey test results from statsmodels.
+    alpha : float
+        The alpha value. The default is 0.05.
 
     Returns
     -------
-    None.
+    A dataframe representing the compact letter display, created from the Tukey
+    test results.
 
     '''
     df["p-adj"] = df["p-adj"].astype(float)
@@ -107,4 +108,8 @@ testDataPath = cwd/'alkane, timePoint x Vegetation.xlsx'
 testData = pd.read_excel(testDataPath)
 testOutput = main(testData, 0.05)
 
-'''Ok looks like this algorithm works. Fuck yes.'''
+'''Ok looks like this algorithm works. Fuck yes.
+
+Nope. It does not work on NAG Vmax time x veg. The raw results states that
+5 x CSS and 6 x CSS are different, but this algorithm makes it so that they
+both share the letter 'b', so it's not perfect. Goddamn it. '''
