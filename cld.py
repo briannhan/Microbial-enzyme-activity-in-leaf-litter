@@ -3,12 +3,12 @@
 Created on Tue Mar  1 19:04:43 2022
 
 @author: dalensis (minor modifications from Brian Chung)
-This script is copied from GitHub user dalensis on this pingouin issue:
+This module is copied from GitHub user dalensis on this pingouin issue:
 https://github.com/raphaelvallat/pingouin/issues/205
 
 Minor modifications are made to make this look cleaner and also remove certain
 unnecessary lines, such as an if statement that checks if the type of the
-p-value is a number or a string. The purpose of this script is to construct a
+p-value is a number or a string. The purpose of this module is to construct a
 "compact letter display", essentially letters that are assigned to treatment
 groups in a multiple comparisons test to designate groups that are similar or
 different to each other.
@@ -18,59 +18,93 @@ import pandas as pd
 import os
 from pathlib import Path
 
-#launch the main function with the output of the pairwise comparison and the CI (for example 99 for alpha=0.01)
 
+def main(df, alpha=0.05):
+    '''
+    Creates a compact letter display. This creates a dataframe consisting of
+    2 columns, a column containing the treatment groups and a column containing
+    the letters that have been assigned to the treatment groups. These letters
+    are part of what's called the compact letter display. Treatment groups that
+    share at least 1 letter are similar to each other, while treatment groups
+    that don't share any letters are significantly different from each other.
 
-def main(df, CI):
-    if len(df.index)<2: df = df.rename(columns = {"p-unc" : "pval"})    #the pval column  has different names based on test and numerosity
-    else: df = df.rename(columns = {"p-corr" : "pval"})
-    
-    groups = sorted(set(df["A"].unique()).union((set(df["B"].unique())))) #take all the names from columns A and B 
-    letters = list(string.ascii_uppercase)[:len(groups)]
+    Parameters
+    ----------
+    df : TYPE
+        DESCRIPTION.
+    alpha : TYPE, optional
+        DESCRIPTION. The default is 0.05.
+
+    Returns
+    -------
+    None.
+
+    '''
+    df["p-adj"] = df["p-adj"].astype(float)
+
+    # Creating a list of the different treatment groups from Tukey's
+    group1 = set(df.group1.tolist())  # Dropping duplicates by creating a set
+    group2 = set(df.group2.tolist())  # Dropping duplicates by creating a set
+    groupSet = group1 | group2  # Set operation that creates a union of 2 sets
+    groups = sorted(list(groupSet))
+
+    # Creating lists of letters that will be assigned to treatment groups
+    letters = list(string.ascii_lowercase)[:len(groups)]
     cldgroups = letters
-    
-    #the following algoritm is a semplification of the classical cld, 
-    
+
+    # the following algoritm is a simplification of the classical cld,
+
     cld = pd.DataFrame(list(zip(groups, letters, cldgroups)))
-    for row in df.itertuples():                                 
-        if not type(df["pval"][row[0]]) is str and df["pval"][row[0]]>(1-CI/100):
-            cld.iat[groups.index(df["A"][row[0]]), 2] +=  cld.iat[groups.index(df["B"][row[0]]), 1]
-            cld.iat[groups.index(df["B"][row[0]]), 2] +=  cld.iat[groups.index(df["A"][row[0]]), 1]
-    
+    for row in df.itertuples():
+        if df["p-adj"][row[0]] > (alpha):
+            cld.iat[groups.index(df["group1"][row[0]]), 2] += cld.iat[groups.index(df["group2"][row[0]]), 1]
+            cld.iat[groups.index(df["group2"][row[0]]), 2] += cld.iat[groups.index(df["group1"][row[0]]), 1]
+
     cld[2] = cld[2].apply(lambda x: "".join(sorted(x)))
-    
-   #this part will reassign the final name to the group, for sure there are more elegant way of doing it
+    cld.rename(columns={0: "groups"}, inplace=True)
+
+    # this part will reassign the final name to the group
+    # for sure there are more elegant ways of doing this
     cld = cld.sort_values(cld.columns[2], key=lambda x: x.str.len())
-    cld["groups"]=""
-    letters = list(string.ascii_uppercase)
+    cld["labels"] = ""
+    letters = list(string.ascii_lowercase)
     unique = []
     for item in cld[2]:
 
-        for fitem in cld["groups"].unique():
-            for c in range (0, len(fitem)):
+        for fitem in cld["labels"].unique():
+            for c in range(0, len(fitem)):
                 if not set(unique).issuperset(set(fitem[c])):
                     unique.append(fitem[c])
-        g=len(unique)
-        
+        g = len(unique)
+
         for kitem in cld[1]:
             if kitem in item:
-                if cld["groups"].loc[cld[1]==kitem].iloc[0]=="": cld["groups"].loc[cld[1]==kitem]+=letters[g]
-                if not len(set(cld["groups"].loc[cld[1]==kitem].iloc[0]).intersection(cld.loc[cld[2]==item,"groups"].iloc[0]))>0:
-                    if letters[g] not in list(cld["groups"].loc[cld[1]==kitem].iloc[0]): cld["groups"].loc[cld[1]==kitem]+=letters[g]
-                    if letters[g] not in list(cld["groups"].loc[cld[2]==item].iloc[0]): cld["groups"].loc[cld[2]==item]+=letters[g]
-   
-    cld = cld.sort_values("groups") 
+                if cld["labels"].loc[cld[1] == kitem].iloc[0] == "":
+                    cld["labels"].loc[cld[1] == kitem] += letters[g]
+
+                # Checking if columns 1 & 2 of cld share at least 1 letter
+                if len(set(cld["labels"].loc[cld[1] == kitem].iloc[0]).intersection(cld.loc[cld[2] == item, "labels"].iloc[0])) <= 0:
+                    if letters[g] not in list(cld["labels"].loc[cld[1] == kitem].iloc[0]):
+                        cld["labels"].loc[cld[1] == kitem] += letters[g]
+                    if letters[g] not in list(cld["labels"].loc[cld[2] == item].iloc[0]):
+                        cld["labels"].loc[cld[2] == item] += letters[g]
+
+    cld = cld.sort_values("labels")
     print(cld)
-    return(cld) #return the df. In my base script i catch it, save to xls, and use the groups to tag the column of the plot.
+    print('\n')
+    cld.drop(columns=[1, 2], inplace=True)
+    print(cld)
+    print('\n')
+    print('\n')
+    return(cld)
 
 
 # Importing alkane, timePoint x Vegetation raw Tukey results with columns that
-# have been modified in Excel
+# have been modified in Excel. This is to test the function
 cwd = Path(os.getcwd())
 filesNfolders = os.listdir(cwd)
 testDataPath = cwd/'alkane, timePoint x Vegetation.xlsx'
 testData = pd.read_excel(testDataPath)
-testData.pval = testData["pval"].astype(float)
-testOutput = main(testData, 95)
+testOutput = main(testData, 0.05)
 
 '''Ok looks like this algorithm works. Fuck yes.'''
