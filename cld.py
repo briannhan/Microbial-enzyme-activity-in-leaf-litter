@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 
 
-def main(df, alpha=0.05):
+def makeCLD(df, alpha=0.05):
     '''
     Creates a compact letter display. This creates a dataframe consisting of
     2 columns, a column containing the treatment groups and a column containing
@@ -117,7 +117,7 @@ def main(df, alpha=0.05):
 # filesNfolders = os.listdir(cwd)
 # testDataPath = cwd/'Vmax, timePoint x Vegetation.xlsx'
 # testData = pd.read_excel(testDataPath)
-# testOutput = main(testData, 0.05)
+# testOutput = makeCLD(testData, 0.05)
 
 '''Ok looks like this algorithm works. Fuck yes.
 
@@ -145,7 +145,9 @@ def checkCLD(data, cld):
 
     Returns
     -------
-    None.
+    A string, the values of which are either 'Good' or 'Bad' to denote whether
+    the compact letter display is correct or wrong when compared to the Tukey
+    test results.
 
     """
     # Splitting the letter strings into individual characters
@@ -162,49 +164,74 @@ def checkCLD(data, cld):
         group1 = row.group1
         group2 = row.group2
         group1cldRow = cld[cld["groups"] == group1]
-        # print("group1cldRow:", group1cldRow)
-        # print('\n')
         group1cld = group1cldRow["labels"].tolist()[0]
-        # print("group1cld as a list:", group1cld)
-        # print('\n')
         group1cld = set(group1cld)
-        # print("group1cld after making a set:", group1cld)
-        # print('\n')
         group2cldRow = cld[cld["groups"] == group2]
-        # print("group2cldRow:", group2cldRow)
-        # print('\n')
         group2cld = group2cldRow["labels"].tolist()[0]
         group2cld = set(group2cld)
-        # print("group2cld:", group2cld)
-        # print('\n')
         intersection = group1cld & group2cld  # Set operation that creates an
         # intersection of the 2 sets
 
-        # Checking if the 2 groups share a letter when they're not different
-        # from each other, with the "reject" column being FALSE. They should
-        # share at least 1 letter. If they don't, then break out of this for
-        # loop and print an error message.
+        # Test the scenario where the 2 groups are similar to each other, with
+        # the "reject" column from the raw Tukey results being "FALSE". In this
+        # scenario, they should share at least 1 letter. If they don't, then
+        # print an error message.
         if testResult == "FALSE":
             if len(intersection) == 0:
                 errorStr = "The cld does not match raw Tukey test results"
+                resultStr = "Bad"
                 print(errorStr)
                 break
-        # Checking if the 2 groups don't share letters when they're similar to
-        # each other, with the "reject" column being TRUE. They shouldn't share
-        # any letters. If they do, then break out of this for loop and print an
-        # error message
+
+        # Test the scenario where the 2 groups are different from each other,
+        # with the "reject" column from the raw Tukey results being "TRUE".
+        # They should not share any letters. If they do share at least 1
+        # letter, then print an error message
         elif testResult == "TRUE":
             if len(intersection) > 0:
                 errorStr = "The cld does not match raw Tukey test results"
+                resultStr = "Bad"
                 print(errorStr)
                 break
     if errorStr != "The cld does not match raw Tukey test results":
         print("Compact letter display matches raw Tukey results")
+        resultStr = "Good"
 
-    return
+    return resultStr
 
 
-# checkCLD(testData, testOutput)
+# check = checkCLD(testData, testOutput)
 # myManualCLD = pd.read_excel("Vmax, timePoint x Vegetation, correct.xlsx")
 # myManualCLD.dropna(axis=1, inplace=True)
-# checkCLD(testData, myManualCLD)
+# check = checkCLD(testData, myManualCLD)
+
+
+def main(testResults, alpha=0.05):
+    """
+    Creates and checks the compact letter display by running the 2 functions
+    above. The intended use of this function/method is that when the user
+    imports this module into another script, the user simply needs to invoke
+    this function, which would then output the compact letter display from raw
+    Tukey results. The user doesn't need to call any of the above 2 methods to
+    create the compact letter display
+
+    Parameters
+    ----------
+    testResults : Pandas dataframe
+        The raw Tukey test results as formatted by statsmodels.
+    alpha : float, optional
+        The alpha value that the user used in their Tukey test. The default is
+        0.05.
+
+    Returns
+    -------
+    A Pandas dataframe that represents the compact letter display.
+
+    """
+    cld = makeCLD(testResults)
+    cldTest = checkCLD(testResults, cld)
+    if cldTest == "Good":
+        return cld
+    elif cldTest == "Bad":
+        print(cldTest)
+    return

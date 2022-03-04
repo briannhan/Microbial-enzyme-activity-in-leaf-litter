@@ -332,10 +332,10 @@ def groups(enzyme):
         outputPath = resultsFolder/outputName
         if not os.path.exists(outputPath):
             sigGroupsDF.to_excel(outputPath, index=False)
-        cldDF = cld.main(results, 0.05)
-        cldName = "{0}, groups, annotated.xlsx".format(rawFileName)
-        cldPath = resultsFolder/cldName
-        cldDF.to_excel(cldPath, index=False)
+        # cldDF = cld.main(results, 0.05)
+        # cldName = "{0}, groups, annotated.xlsx".format(rawFileName)
+        # cldPath = resultsFolder/cldName
+        # cldDF.to_excel(cldPath, index=False)
     return
 
 
@@ -345,7 +345,7 @@ def groups(enzyme):
 # groups("BX")
 # groups("CBH")
 # groups("LAP")
-groups("NAG")
+# groups("NAG")
 # groups("PPO")
 '''And now, some manual annotation of which groups are significant or not.
 '''
