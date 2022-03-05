@@ -41,6 +41,7 @@ def makeCLD(df, alpha=0.05):
     test results.
 
     '''
+    df.dropna(axis="columns")
     df["p-adj"] = df["p-adj"].astype(float)
 
     # Creating a list of the different treatment groups from Tukey's
@@ -151,9 +152,10 @@ def checkCLD(data, cld):
 
     """
     # Splitting the letter strings into individual characters
-    for index, row in cld.iterrows():
+    cldCopy = cld.copy()
+    for index, row in cldCopy.iterrows():
         letterStr = row.labels
-        cld.loc[index, "labels"] = list(letterStr)  # Splitting string by
+        cldCopy.loc[index, "labels"] = list(letterStr)  # Splitting string by
         # converting to list, which creates a list of individual characters
 
     # Checking to see if the compact letter display matches the raw Tukey
@@ -163,10 +165,10 @@ def checkCLD(data, cld):
         testResult = row.reject
         group1 = row.group1
         group2 = row.group2
-        group1cldRow = cld[cld["groups"] == group1]
+        group1cldRow = cldCopy[cldCopy["groups"] == group1]
         group1cld = group1cldRow["labels"].tolist()[0]
         group1cld = set(group1cld)
-        group2cldRow = cld[cld["groups"] == group2]
+        group2cldRow = cldCopy[cldCopy["groups"] == group2]
         group2cld = group2cldRow["labels"].tolist()[0]
         group2cld = set(group2cld)
         intersection = group1cld & group2cld  # Set operation that creates an
@@ -235,3 +237,13 @@ def main(testResults, alpha=0.05):
     elif cldTest == "Bad":
         print(cldTest)
     return
+
+
+# Importing alkane, timePoint x Vegetation raw Tukey results with columns that
+# have been modified in Excel. This is to test the function
+# cwd = Path(os.getcwd())
+# filesNfolders = os.listdir(cwd)
+# testDataPath = cwd/'Vmax, timePoint x Vegetation.xlsx'
+# testData = pd.read_excel(testDataPath)
+# testOutput = main(testData, 0.05)
+# testOutput = makeCLD(testData, 0.05)

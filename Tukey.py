@@ -505,5 +505,82 @@ parameters = pd.concat([parameters, litterChem])
 # Testing for proteins
 # Tukey("amide", "amide")
 # groups("amide")
+
+# (3) Creating compact letter displays for the Tukey tests conducted so far on
+# litter chemistry data
+# for functionalGroup in functionalGroups:
+#     litterChemTukeyFolder = statsFolder/"Tukey posthoc"/functionalGroup
+#     files = os.listdir(litterChemTukeyFolder)
+
+#     # Obtaining only the Excel raw Tukey results files, not the groups files
+#     rawResultsFiles = []
+#     for file in files:
+#         if file.endswith(".xlsx") and "groups, annotated" not in file:
+#             rawResultsFiles.append(file)
+
+#     # Creating compact letter displays associated with each raw Tukey results
+#     # file
+#     for file in rawResultsFiles:
+#         filePath = litterChemTukeyFolder/file
+#         rawResults = pd.read_excel(filePath)
+#         fileCLD = cld.main(rawResults)
+#         # The cld.main() method returns a dataframe if the cld it creates,
+#         # matches the raw Tukey results. If the cld doesn't match the raw
+#         # Tukey results, then it doesn't return anything. This if statement
+#         # is to check if the method returns a dataframe instead of nothing.
+#         if type(fileCLD) is not None:
+#             fileStripped = file.strip(".xlsx")
+#             cldName = fileStripped + ", groups, annotated.xlsx"
+#             cldPath = litterChemTukeyFolder/cldName
+#             fileCLD.to_excel(cldPath, index=False)
+#         elif type(fileCLD) is None:
+#             print(file)
+#             print("Failed to create CLD for these results")
+#             print('\n')
+"""Tukey's post-hoc rendered some main effects and interactions that were found
+to be significant by ANOVAs to be insignificant. They are
+
+Carbohydrate C-O stretching: time, precipitation
+Carbohydrate ester bonds: precipitation
+Lipids: vegetation x precipitation
+Alkanes: vegetation x precipitation
+
+As a result, I will conduct some additional Tukey's post-hoc on other main
+effects/interactions that were still found to be significant by ANOVAs but
+have not been tested yet by Tukey's post-hoc.
+"""
+# %%
+# Purpose: conducting Tukey post-hoc on certain main effects/interactions on
+# litter chemistry after preliminary Tukey's revealed that certain interactions
+# are insignificant
+# The main effects that will be tested for are
+# Lipid: Vegetation
+
+# (1) Conducting Tukey's post-hoc on Vegetation as a main effect on lipids
+# and exporting them
+lipidDF = litterChem[litterChem.Enzyme == "lipid"]
+lipidResults = MC(lipidDF.value, lipidDF.Vegetation).tukeyhsd().summary()
+exportTukeyResults("lipid", "lipid", "Vegetation", lipidResults)
+
+# (2) Creating the compact letter display for Vegetation as a main effect on
+# lipids
+lipidTukeyFolder = statsFolder/"Tukey posthoc"/"lipid"
+lipidFiles = os.listdir(lipidTukeyFolder)
+for file in lipidFiles:
+    if file.endswith(".xlsx"):
+        # Obtaining only the Vegetation Excel Tukey results file
+        if "Vegetation" in file and "annotated" not in file:
+            lipidTukeyPath = lipidTukeyFolder/file
+            lipidTukey = pd.read_excel(lipidTukeyPath)
+            lipidCLD = cld.main(lipidTukey)
+            if type(lipidCLD) is not None:
+                fileStripped = file.rstrip(".xlsx")
+                lipidCLDname = fileStripped + ", groups, annotated.xlsx"
+                lipidCLDpath = lipidTukeyFolder/lipidCLDname
+                lipidCLD.to_excel(lipidCLDpath, index=False)
+            else:
+                print("CLD failed to be created for lipid, vegetation")
+                break
+"""And that's it. I can start making boxplots for litter chemistry data now"""
 # %%
 print(dt.now() - start)
