@@ -7,6 +7,9 @@ This script creates boxplots of how Vmax and Km vary based on treatments and
 time, and labels the boxplots with Tukey letters. Color schemes are meant to be
 color-blind-friendly and are taken from the following link:
 https://personal.sron.nl/~pault/#sec:qualitative
+
+March 5, 2022 onwards
+This script also creates boxplots for litter chemistry data
 """
 
 import os

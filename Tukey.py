@@ -327,7 +327,7 @@ def groups(enzyme):
         groups = group1 + group2  # Dropping duplicates
         sigGroupsDF = pd.DataFrame({"groups": groups})
         sigGroupsDF = sigGroupsDF.drop_duplicates()  # Dropping duplicates
-        rawFileName = file.strip(".xlsx")
+        rawFileName = file.rstrip(".xlsx")
         outputName = "{0}, groups.xlsx".format(rawFileName)
         outputPath = resultsFolder/outputName
         if not os.path.exists(outputPath):
@@ -515,7 +515,7 @@ parameters = pd.concat([parameters, litterChem])
 #     # Obtaining only the Excel raw Tukey results files, not the groups files
 #     rawResultsFiles = []
 #     for file in files:
-#         if file.endswith(".xlsx") and "groups, annotated" not in file:
+#         if file.endswith(".xlsx") and "groups" not in file:
 #             rawResultsFiles.append(file)
 
 #     # Creating compact letter displays associated with each raw Tukey results
@@ -529,7 +529,7 @@ parameters = pd.concat([parameters, litterChem])
 #         # Tukey results, then it doesn't return anything. This if statement
 #         # is to check if the method returns a dataframe instead of nothing.
 #         if type(fileCLD) is not None:
-#             fileStripped = file.strip(".xlsx")
+#             fileStripped = file.rstrip(".xlsx")
 #             cldName = fileStripped + ", groups, annotated.xlsx"
 #             cldPath = litterChemTukeyFolder/cldName
 #             fileCLD.to_excel(cldPath, index=False)
@@ -558,29 +558,29 @@ have not been tested yet by Tukey's post-hoc.
 
 # (1) Conducting Tukey's post-hoc on Vegetation as a main effect on lipids
 # and exporting them
-lipidDF = litterChem[litterChem.Enzyme == "lipid"]
-lipidResults = MC(lipidDF.value, lipidDF.Vegetation).tukeyhsd().summary()
-exportTukeyResults("lipid", "lipid", "Vegetation", lipidResults)
+# lipidDF = litterChem[litterChem.Enzyme == "lipid"]
+# lipidResults = MC(lipidDF.value, lipidDF.Vegetation).tukeyhsd().summary()
+# exportTukeyResults("lipid", "lipid", "Vegetation", lipidResults)
 
 # (2) Creating the compact letter display for Vegetation as a main effect on
 # lipids
-lipidTukeyFolder = statsFolder/"Tukey posthoc"/"lipid"
-lipidFiles = os.listdir(lipidTukeyFolder)
-for file in lipidFiles:
-    if file.endswith(".xlsx"):
-        # Obtaining only the Vegetation Excel Tukey results file
-        if "Vegetation" in file and "annotated" not in file:
-            lipidTukeyPath = lipidTukeyFolder/file
-            lipidTukey = pd.read_excel(lipidTukeyPath)
-            lipidCLD = cld.main(lipidTukey)
-            if type(lipidCLD) is not None:
-                fileStripped = file.rstrip(".xlsx")
-                lipidCLDname = fileStripped + ", groups, annotated.xlsx"
-                lipidCLDpath = lipidTukeyFolder/lipidCLDname
-                lipidCLD.to_excel(lipidCLDpath, index=False)
-            else:
-                print("CLD failed to be created for lipid, vegetation")
-                break
+# lipidTukeyFolder = statsFolder/"Tukey posthoc"/"lipid"
+# lipidFiles = os.listdir(lipidTukeyFolder)
+# for file in lipidFiles:
+#     if file.endswith(".xlsx"):
+#         # Obtaining only the Vegetation Excel Tukey results file
+#         if "Vegetation" in file and "groups" not in file:
+#             lipidTukeyPath = lipidTukeyFolder/file
+#             lipidTukey = pd.read_excel(lipidTukeyPath)
+#             lipidCLD = cld.main(lipidTukey)
+#             if type(lipidCLD) is not None:
+#                 fileStripped = file.rstrip(".xlsx")
+#                 lipidCLDname = fileStripped + ", groups, annotated.xlsx"
+#                 lipidCLDpath = lipidTukeyFolder/lipidCLDname
+#                 lipidCLD.to_excel(lipidCLDpath, index=False)
+#             else:
+#                 print("CLD failed to be created for lipid, vegetation")
+#                 break
 """And that's it. I can start making boxplots for litter chemistry data now"""
 # %%
 print(dt.now() - start)

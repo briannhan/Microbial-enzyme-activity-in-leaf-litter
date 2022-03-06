@@ -44,6 +44,8 @@ for index, row in functional.iterrows():
     # Renaming vegetation values
     if row.Vegetation == "Grass":
         functional.loc[index, "Vegetation"] = "Grassland"
+    elif row.Vegetation == "Shrub":
+        functional.loc[index, "Vegetation"] = "CSS"
 
     # Renaming time points
     if row.timePoint == "T1":
