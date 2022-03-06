@@ -57,6 +57,41 @@ for index, row in functional.iterrows():
     elif row.timePoint == "T4":
         functional.loc[index, "timePoint"] = "6"
 # %%
+# Purpose: Calculate FTIR spectral area of different raw FTIR files to see
+# which files are actually the raw FTIR data that Ashish used to calculate
+# the carbo1, carbo2, carbo3, carbo4, amide1, amide2, lipid, and alkane
+# spectral areas that he then sent me
+
+# (1) Calculating carbo1 spectral area for sample at plot 14 and timepoint 0
+# using the ftir.txt file. This spectral area has a range of 970-1015 cm-1
+ftirPath = litterChemFolderPath/"ftir.txt"
+ftirTxt = pd.read_csv(ftirPath, sep="\t", header=0)
+ftirTxt = ftirTxt[(ftirTxt.wavelength >= 970) & (ftirTxt.wavelength <= 1015)]
+ftirTxt14 = ftirTxt["t0-14"].sum()
+print("ftirTxt14:", ftirTxt14)
+print('\n')
+
+# (2) Doing the same but instead of calculating using ftir.txt, I calculate
+# using ftir.norm.csv
+ftirNormPath = litterChemFolderPath/"ftir.norm.csv"
+ftirNorm = pd.read_csv(ftirNormPath)
+ftirNormOGcols = ftirNorm.columns.tolist()
+ftirNormWavelengths = ftirNormOGcols[1:]
+ftirNorm = ftirNorm.melt(id_vars="id", value_vars=ftirNormWavelengths,
+                         var_name="wavelength")
+ftirNorm["wavelength"] = ftirNorm["wavelength"].str.lstrip("x")
+ftirNorm["wavelength"] = ftirNorm["wavelength"].astype(float)
+ftirNorm = ftirNorm[(ftirNorm["wavelength"] >= 970)
+                    & (ftirNorm["wavelength"] <= 1015)
+                    & (ftirNorm.id == "t0-14")]
+ftirNorm14 = ftirNorm["value"].sum()
+print("ftirNorm14:", ftirNorm14)
+print('\n')
+"""So none of these 2 numbers match the value that Ashish gave me for carbo1
+of plot plot 14 at time T0, which is about 7.768% of FTIR spectral area. So, I
+don't know how he calculated these numbers that he gave me in the first place.
+"""
+# %%
 # Exporting the data. I'm wondering if I have to analyze lignin later, so just
 # to clarify, this data only contains spectral area of carbohydrates and
 # proteins
