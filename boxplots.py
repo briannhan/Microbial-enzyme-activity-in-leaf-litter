@@ -9,7 +9,7 @@ color-blind-friendly and are taken from the following link:
 https://personal.sron.nl/~pault/#sec:qualitative
 
 March 5, 2022 onwards
-This script also creates boxplots for litter chemistry data
+This script also creates boxplots for litter chemistry data.
 """
 
 import os
@@ -36,22 +36,39 @@ parameters = pd.read_excel(paramPath).drop(columns=["Replicate",
                                                     "Transformation"])
 parameters = parameters.rename(columns={"Precip": "Precipitation"})
 parameters["timePoint"] = parameters["timePoint"].astype(str)
+
+# Loading in and wrangling the litter chemistry data, concatenating it to the
+# Michaelis-Menten parameters dataframe
+litterChemFolder = cwd/"Litter chemistry"
+litterChemPath = litterChemFolder/"Carbohydrates and Proteins FTIR.xlsx"
+litterChem = pd.read_excel(litterChemPath)
+litterChem.rename(columns={"Precip": "Precipitation", "id": "ID",
+                           "functionalGroup": "Enzyme"}, inplace=True)
+litterChem["Parameter"] = "FTIR spectral area"
+litterChem["timePoint"] = litterChem["timePoint"].astype(str)
+parameters = pd.concat([parameters, litterChem])
+functionalGroups = set(litterChem.Enzyme.tolist())
+# I already made sure that the time point is a string
+
 '''I'm changing the treatments up. Originally timePoint was recorded as 0, 3,
 5, and 6, but after briefly looking at a draft of a manuscript by Ashish, I'm
 changing them so that they are, accordingly, 1, 2, 3, 4 to fall in line with
 his manuscript. In addition, I'm shortening some of the treatment names
 '''
 renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
+
                     "0 x Grassland": "1, Gr", "3 x Grassland": "2, Gr",
                     "5 x Grassland": "3, Gr", "6 x Grassland": "4, Gr",
                     "0 x CSS": "1, CSS", "3 x CSS": "2, CSS",
                     "5 x CSS": "3, CSS", "6 x CSS": "4, CSS",
                     # timePoint x Vegetation
+
                     "0 x Reduced": "1, D", "3 x Reduced": "2, D",
                     "5 x Reduced": "3, D", "6 x Reduced": "4, D",
                     "0 x Ambient": "1, A", "3 x Ambient": "2, A",
                     "5 x Ambient": "3, A", "6 x Ambient": "4, A",
                     # timePoint x Precipitation
+
                     "0 x Reduced x Grassland": "1, Gr, D",  # D = Drought
                     "3 x Reduced x Grassland": "2, Gr, D",
                     "5 x Reduced x Grassland": "3, Gr, D",
@@ -69,11 +86,12 @@ renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
                     "5 x Ambient x CSS": "3, CSS, A",
                     "6 x Ambient x CSS": "4, CSS, A",
                     # three-way (PPO Vmax)
-                    "CSS x Reduced": "CSS, D",
+
+                    "CSS x Reduced": "CSS, D",  # Vegetation x Precipitation
                     "CSS x Ambient": "CSS, A",
                     "Grassland x Reduced": "Gr, D",
                     "Grassland x Ambient": "Gr, A"}
-# Vegetation x Precipitation
+
 oldTreatments = renameTreatments.keys()
 # This dict records the old time points & treatment combinations as the keys
 # and the new time points & treatment combinations as the values
@@ -311,6 +329,10 @@ def TukeyGroupCols(enzyme, fileName):
     """
     splitAnnotateName = fileName.split(", ")
     parameter = splitAnnotateName[0]
+    if parameter in functionalGroups:  # If the parameter is actually a
+        # functional group, so it gets re-assigned as below to match the
+        # modified parameters dataframe
+        parameter = "FTIR spectral area"
     mainEorInteraction = splitAnnotateName[1]
     condi = (parameters.Parameter == parameter) & (parameters.Enzyme == enzyme)
     paramsOI = parameters[condi]
@@ -328,6 +350,8 @@ def TukeyGroupCols(enzyme, fileName):
         groupSeries = (paramsOI["timePoint"] + " x "
                        + paramsOI["Precipitation"] + " x "
                        + paramsOI["Vegetation"])
+    elif mainEorInteraction == "Precip":
+        groupSeries = paramsOI["Precipitation"]
     else:
         groupSeries = paramsOI[mainEorInteraction]
     paramsOI["TukeyGroups"] = groupSeries
@@ -372,12 +396,17 @@ def plotBoxPlot(enzyme, fileName):
     dataToPlot = []
     paramsOIcols = paramsOI.columns.tolist()
     assert paramsOIcols == TukeyGroups
-    for group in TukeyGroups:
+    for group in paramsOIcols:
         dataColumn = paramsOI[group].dropna()
         dataToPlot.append(dataColumn)
     fileNameSplit = fileName.split(", ")
     parameter = fileNameSplit[0]
+    if parameter in functionalGroups:  # If parameter is actually a litter
+        # chemistry functional group, then it gets re-assigned as below
+        parameter = "FTIR spectral area"
     mainEorInteraction = fileNameSplit[1]
+    if mainEorInteraction == "Precip":
+        mainEorInteraction = "Precipitation"
     figName = "{0}, {1}, {2}".format(enzyme, parameter, mainEorInteraction)
     py.figure(figName, (20, 10))
     bp = py.boxplot(dataToPlot, patch_artist=True, labels=TukeyGroups,
@@ -388,6 +417,9 @@ def plotBoxPlot(enzyme, fileName):
     elif parameter == "Vmax":
         y = r"Enzyme amount, $Log_{10}$ $V_{max}$ ($log_{10}$ $(\mu mol/g/h)$)"
         formattedParam = r"$V_{max}$"
+    elif parameter == "FTIR spectral area":
+        y = parameter + " (%)"
+        formattedParam = parameter
     py.ylabel(y, fontfamily="serif", fontsize="xx-large",
               fontstyle="oblique")
     py.yticks(fontsize="xx-large")
@@ -442,7 +474,7 @@ def plotBoxPlot(enzyme, fileName):
         # Setting fill type for precipitation treatment
         if "A" in group:
             hatchType = ambientHatch
-        elif "D" in group:
+        elif "Reduced" in group or "D" in group:
             hatchType = reducedHatch
         else:
             hatchType = None
@@ -514,5 +546,9 @@ def plotAllBoxPlots(enzyme):
 # plotAllBoxPlots("NAG")
 # plotAllBoxPlots("PPO")
 # plotBoxPlot("PPO", "Vmax, Vegetation, groups, annotated.xlsx")
+# %%
+# Purpose: Make boxplots for litter chemistry data
+# for functionalGroup in functionalGroups:
+#     plotAllBoxPlots(functionalGroup)
 # %%
 print(datetime.now() - start)
