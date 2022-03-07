@@ -48,7 +48,6 @@ litterChem["Parameter"] = "FTIR spectral area"
 litterChem["timePoint"] = litterChem["timePoint"].astype(str)
 parameters = pd.concat([parameters, litterChem])
 functionalGroups = set(litterChem.Enzyme.tolist())
-# I already made sure that the time point is a string
 
 '''I'm changing the treatments up. Originally timePoint was recorded as 0, 3,
 5, and 6, but after briefly looking at a draft of a manuscript by Ashish, I'm
@@ -56,6 +55,8 @@ changing them so that they are, accordingly, 1, 2, 3, 4 to fall in line with
 his manuscript. In addition, I'm shortening some of the treatment names
 '''
 renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
+
+                    "Reduced": "Drought",  # Precipitation only
 
                     "0 x Grassland": "1, Gr", "3 x Grassland": "2, Gr",
                     "5 x Grassland": "3, Gr", "6 x Grassland": "4, Gr",
@@ -85,7 +86,8 @@ renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
                     "3 x Ambient x CSS": "2, CSS, A",
                     "5 x Ambient x CSS": "3, CSS, A",
                     "6 x Ambient x CSS": "4, CSS, A",
-                    # three-way (PPO Vmax)
+                    # three-way (PPO Vmax only; no other Vmax, Km, or litter
+                    # chemistry functional groups have 3-way interactions)
 
                     "CSS x Reduced": "CSS, D",  # Vegetation x Precipitation
                     "CSS x Ambient": "CSS, A",
@@ -293,16 +295,13 @@ def annotationFileRename(enzyme, fileName):
     annotations = annotations.sort_values(by="groups")
     for index, row in annotations.iterrows():
         oldGroup = row["groups"]
-        if oldGroup not in oldTreatments:
-            # If the annotation groups are either only vegetation,
-            # precipitation, or vegetation x precipitation, then it exits this
-            # for loop
-            break
-        else:
-            # If the annotation groups contain old time points, then they will
-            # be renamed according to the dictionary above
+        if oldGroup in oldTreatments:
+            # If the annotation groups contain old time points or contains
+            # precipitation, either as a main effect or as an interaction, or
+            # contains vegetation as an interaction, then
+            # they will be renamed according to the dictionary above
             newGroup = renameTreatments[oldGroup]
-        annotations.loc[index, "groups"] = newGroup
+            annotations.loc[index, "groups"] = newGroup
     return annotations
 
 
@@ -329,7 +328,8 @@ def TukeyGroupCols(enzyme, fileName):
     """
     splitAnnotateName = fileName.split(", ")
     parameter = splitAnnotateName[0]
-    if parameter in functionalGroups:  # If the parameter is actually a
+    if parameter in functionalGroups:  # If the parameter as read in from the
+        # compact letter display file is actually a
         # functional group, so it gets re-assigned as below to match the
         # modified parameters dataframe
         parameter = "FTIR spectral area"
@@ -402,7 +402,8 @@ def plotBoxPlot(enzyme, fileName):
     fileNameSplit = fileName.split(", ")
     parameter = fileNameSplit[0]
     if parameter in functionalGroups:  # If parameter is actually a litter
-        # chemistry functional group, then it gets re-assigned as below
+        # chemistry functional group as obtained from the name of the compact
+        # letter display, then it gets re-assigned as below
         parameter = "FTIR spectral area"
     mainEorInteraction = fileNameSplit[1]
     if mainEorInteraction == "Precip":

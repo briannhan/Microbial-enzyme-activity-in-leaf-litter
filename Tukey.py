@@ -532,7 +532,7 @@ parameters = pd.concat([parameters, litterChem])
 #             fileStripped = file.rstrip(".xlsx")
 #             cldName = fileStripped + ", groups, annotated.xlsx"
 #             cldPath = litterChemTukeyFolder/cldName
-#             fileCLD.to_excel(cldPath, index=False)
+#             # fileCLD.to_excel(cldPath, index=False)
 #         elif type(fileCLD) is None:
 #             print(file)
 #             print("Failed to create CLD for these results")
