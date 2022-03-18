@@ -426,12 +426,14 @@ litterChem.rename({"id": "ID", "functionalGroup": "Enzyme"},
                   axis="columns", inplace=True)
 # "functionalGroup" is renamed as "Enzyme" so that this dataframe can be merged
 # with the Michaelis-Menten parameters dataframe and ANOVAs can be performed
-carbohydrate = ["glycosidicBond", "C_O_stretching", "carboEster"]
+carbohydrate = ["glycosidicBond", "C_O_stretching", "carboEster",
+                "carboEster1", "carboEster2"]
+protein = ["amide", "amide1", "amide2"]
 for index, row in litterChem.iterrows():
     functionalGroup = row.Enzyme
     if functionalGroup in carbohydrate:
         litterChem.loc[index, "Parameter"] = "Carbohydrate"
-    elif functionalGroup == "amide":
+    elif functionalGroup in protein:
         litterChem.loc[index, "Parameter"] = "Protein"
     elif functionalGroup == "lipid" or functionalGroup == "alkane":
         litterChem.loc[index, "Parameter"] = functionalGroup
@@ -466,7 +468,8 @@ results2C_O = factorialANOVA("C_O_stretching", "Carbohydrate", None, timeXppt,
 # (3) Removing all two-way interactions, which were all insignificant
 results3C_O = factorialANOVA("C_O_stretching", "Carbohydrate")
 # %%
-# Purpose: Running factorial ANOVAs for carbohydrate esters
+# Purpose: Running factorial ANOVAs for total carbohydrate esters, i.e.
+# carboEster1 + carboEster2
 
 # (1) Testing for all interactions (two-way and three-way)
 results1carboEster = factorialANOVA("carboEster", "Carbohydrate", "Y")
@@ -478,6 +481,34 @@ results2carboEster = factorialANOVA("carboEster", "Carbohydrate", None,
 # (3) Testing for main effects only, since all two-way interactions are
 # insignificant
 results3carboEster = factorialANOVA("carboEster", "Carbohydrate")
+# %%
+# Purpose: Running factorial ANOVAs for carboEster1
+
+# (1) Testing for all interactions (two-way and three-way)
+results1carboEster1 = factorialANOVA("carboEster1", "Carbohydrate", "Y")
+
+# (2) Testing for two-way interactions only
+results2carboEster1 = factorialANOVA("carboEster1", "Carbohydrate", None,
+                                     timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for main effects only, since all two-way interactions are
+# insignificant
+results3carboEster1 = factorialANOVA("carboEster1", "Carbohydrate")
+# %%
+# Purpose: Running factorial ANOVAs for carboEster2
+
+# (1) Testing for all interactions (two-way and three-way)
+results1carboEster2 = factorialANOVA("carboEster2", "Carbohydrate", "Y")
+
+# (2) Testing for two-way interactions only, since the three-way interaction is
+# insignificant
+results2carboEster2 = factorialANOVA("carboEster2", "Carbohydrate", None,
+                                     timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for only the veg x precip two-way interaction plus main effects,
+# since other two-way interactions are insignificant
+results3carboEster2 = factorialANOVA("carboEster2", "Carbohydrate", None,
+                                     vegXppt)
 # %%
 # Purpose: Running factorial ANOVAs for lipid content
 
@@ -501,11 +532,11 @@ results1alkane = factorialANOVA("alkane", "alkane", "Y")
 results2alkane = factorialANOVA("alkane", "alkane", None, timeXppt, timeXveg,
                                 vegXppt)
 
-# (3) Testing for main effects andalkane the two-way interactions of
+# (3) Testing for main effects and the two-way interactions of
 # time x vegetation and precipitation x vegetation
 results3alkane = factorialANOVA("alkane", "alkane", None, timeXveg, vegXppt)
 # %%
-# Purpose: Running factorial ANOVAs on protein content
+# Purpose: Running factorial ANOVAs on total amides (amide1 + amide2)
 
 # (1) Testing for all interactions (two-way and three-way)
 results1protein = factorialANOVA("amide", "Protein", "Y")
@@ -516,5 +547,30 @@ results2protein = factorialANOVA("amide", "Protein", None, timeXppt, timeXveg,
 
 # (3) Testing for main effects only
 results3protein = factorialANOVA("amide", "Protein")
+# %%
+# Purpose: Running factorial ANOVAs on amide1
+
+# (1) Testing for all interactions (two-way and three-way)
+results1amide1 = factorialANOVA("amide1", "Protein", "Y")
+
+# (2) Testing two-way interactions only, since three-way is insignificant
+results2amide1 = factorialANOVA("amide1", "Protein", None, timeXppt, timeXveg,
+                                vegXppt)
+
+# (3) Testing for main effects only, since all interactions are insignificant
+results3amide1 = factorialANOVA("amide1", "Protein")
+# %%
+# Purpose: Running factorial ANOVAs on amide2
+
+# (1) Testing for all interactions (two-way and three-way)
+results1amide2 = factorialANOVA("amide2", "Protein", "Y")
+
+# (2) Testing for two-way interactions only
+results2amide2 = factorialANOVA("amide2", "Protein", None, timeXppt, timeXveg,
+                                vegXppt)
+
+# (3) Testing for main effects only
+results3amide2 = factorialANOVA("amide2", "Protein")
+"""Only precipitation is significant"""
 # %%
 print(datetime.now() - start)

@@ -71,6 +71,7 @@ def makeCLD(df, alpha=0.05):
     cld[2] = cld[2].apply(lambda x: "".join(sorted(x)))
     cld[3] = cld[3].apply(lambda x: "".join(sorted(x)))
     cld.rename(columns={0: "groups"}, inplace=True)
+    cld["groups"] = cld["groups"].astype(str)
 
     # this part will reassign the final name to the group
     # for sure there are more elegant ways of doing this
@@ -103,12 +104,13 @@ def makeCLD(df, alpha=0.05):
                         cld["labels"].loc[cld[2] == item] += letters[g]
 
     cld = cld.sort_values("labels")
-    print(cld)
-    print('\n')
+    # print(cld)
+    # print('\n')
     cld.drop(columns=[1, 2, 3], inplace=True)
-    print(cld)
-    print('\n')
-    print('\n')
+    # cld = cld.reindex()
+    # print(cld)
+    # print('\n')
+    # print('\n')
     return(cld)
 
 
@@ -155,12 +157,15 @@ def checkCLD(data, cld):
     cldCopy = cld.copy()
     for index, row in cldCopy.iterrows():
         letterStr = row.labels
-        cldCopy.loc[index, "labels"] = list(letterStr)  # Splitting string by
+        letterStrList = list(letterStr)
+        cldCopy.loc[index, "labels"] = letterStrList  # Splitting string by
         # converting to list, which creates a list of individual characters
 
     # Checking to see if the compact letter display matches the raw Tukey
     # results
     errorStr = ""
+    data["group1"] = data["group1"].astype(str)
+    data["group2"] = data["group2"].astype(str)
     for index, row in data.iterrows():
         testResult = row.reject
         group1 = row.group1

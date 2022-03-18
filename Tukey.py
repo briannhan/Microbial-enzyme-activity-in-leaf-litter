@@ -490,9 +490,16 @@ parameters = pd.concat([parameters, litterChem])
 # Tukey("C_O_stretching", "C_O_stretching")
 # groups("C_O_stretching")
 
-# Testing for pectins and hemicellulose, which are subtypes of carbohydrates
+# Testing for total area of carbohydrate esters (carboEster1 + carboEster2.
+# Pectins and hemicellulose contain esters and are subtypes of carbohydrates
 # Tukey("carboEster", "carboEster")
 # groups("carboEster")
+
+# Testing for carboEster1 only
+Tukey("carboEster1", "carboEster1")
+
+# Testing for carboEster2 only
+Tukey("carboEster2", "carboEster2")
 
 # Testing for lipids
 # Tukey("lipid", "lipid")
@@ -502,48 +509,59 @@ parameters = pd.concat([parameters, litterChem])
 # Tukey("alkane", "alkane")
 # groups("alkane")
 
-# Testing for proteins
+# Testing for total amide area (amide1 + amide2). Amides are a functional
+# group contained by proteins
 # Tukey("amide", "amide")
 # groups("amide")
 
+# Testing for amide1 only
+Tukey("amide1", "amide1")
+
+# Testing for amide2 only
+Tukey("amide2", "amide2")
+
 # (3) Creating compact letter displays for the Tukey tests conducted so far on
 # litter chemistry data
-# for functionalGroup in functionalGroups:
-#     litterChemTukeyFolder = statsFolder/"Tukey posthoc"/functionalGroup
-#     files = os.listdir(litterChemTukeyFolder)
+for functionalGroup in functionalGroups:
+    litterChemTukeyFolder = statsFolder/"Tukey posthoc"/functionalGroup
+    files = os.listdir(litterChemTukeyFolder)
 
-#     # Obtaining only the Excel raw Tukey results files, not the groups files
-#     rawResultsFiles = []
-#     for file in files:
-#         if file.endswith(".xlsx") and "groups" not in file:
-#             rawResultsFiles.append(file)
+    # Obtaining only the Excel raw Tukey results files, not the groups files
+    rawResultsFiles = []
+    for file in files:
+        if file.endswith(".xlsx") and "groups" not in file:
+            rawResultsFiles.append(file)
 
-#     # Creating compact letter displays associated with each raw Tukey results
-#     # file
-#     for file in rawResultsFiles:
-#         filePath = litterChemTukeyFolder/file
-#         rawResults = pd.read_excel(filePath)
-#         fileCLD = cld.main(rawResults)
-#         # The cld.main() method returns a dataframe if the cld it creates,
-#         # matches the raw Tukey results. If the cld doesn't match the raw
-#         # Tukey results, then it doesn't return anything. This if statement
-#         # is to check if the method returns a dataframe instead of nothing.
-#         if type(fileCLD) is not None:
-#             fileStripped = file.rstrip(".xlsx")
-#             cldName = fileStripped + ", groups, annotated.xlsx"
-#             cldPath = litterChemTukeyFolder/cldName
-#             # fileCLD.to_excel(cldPath, index=False)
-#         elif type(fileCLD) is None:
-#             print(file)
-#             print("Failed to create CLD for these results")
-#             print('\n')
+    # Creating compact letter displays associated with each raw Tukey results
+    # file
+    for file in rawResultsFiles:
+        filePath = litterChemTukeyFolder/file
+        rawResults = pd.read_excel(filePath)
+        fileCLD = cld.main(rawResults)
+        # The cld.main() method returns a dataframe if the cld it creates,
+        # matches the raw Tukey results. If the cld doesn't match the raw
+        # Tukey results, then it doesn't return anything. This if statement
+        # is to check if the method returns a dataframe instead of nothing.
+        if type(fileCLD) is not None:
+            fileStripped = file.rstrip(".xlsx")
+            cldName = fileStripped + ", groups, annotated.xlsx"
+            cldPath = litterChemTukeyFolder/cldName
+            if os.path.exists(cldPath) is False:
+                fileCLD.to_excel(cldPath, index=False)
+        elif type(fileCLD) is None:
+            print(file)
+            print("Failed to create CLD for these results")
+            print('\n')
 """Tukey's post-hoc rendered some main effects and interactions that were found
 to be significant by ANOVAs to be insignificant. They are
 
 Carbohydrate C-O stretching: time, precipitation
-Carbohydrate ester bonds: precipitation
+Carbohydrate total ester area: precipitation
+carboEster1: time
+carboEster2: time
 Lipids: vegetation x precipitation
 Alkanes: vegetation x precipitation
+amide1: vegetation
 
 As a result, I will conduct some additional Tukey's post-hoc on other main
 effects/interactions that were still found to be significant by ANOVAs but

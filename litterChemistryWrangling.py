@@ -31,13 +31,15 @@ functionalOG["carboEster"] = functionalOG.carbo1 + functionalOG.carbo3
 functionalOG["amide"] = functionalOG.amide1 + functionalOG.amide2
 
 # Dropping the original carbohydrate ester and amide columns
-functional = functionalOG.drop(columns=["carbo1", "carbo3", "amide1",
-                                        "amide2"])
+# functional = functionalOG.drop(columns=["carbo1", "carbo3", "amide1",
+#                                         "amide2"])
 # %%
 # Renaming independent variable columns and the values in these columns
 renameColsDict = {"veg": "Vegetation", "prec": "Precip", "time": "timePoint",
-                  "carbo2": "glycosidicBond", "carbo4": "C_O_stretching"}
-functional.rename(renameColsDict, axis="columns", inplace=True)
+                  "carbo1": "carboEster1", "carbo2": "glycosidicBond",
+                  "carbo3": "carboEster2", "carbo4": "C_O_stretching"}
+# functional.rename(renameColsDict, axis="columns", inplace=True)
+functional = functionalOG.rename(renameColsDict, axis="columns")
 
 # Renaming the values in each independent variable column
 for index, row in functional.iterrows():
@@ -99,7 +101,8 @@ don't know how he calculated these numbers that he gave me in the first place.
 # Collapsing the functional group columns into 2 columns: the functional group
 # and the spectral area occupied by the functional group
 functionalGroupsOG = ["glycosidicBond", "C_O_stretching", "alkane", "lipid",
-                      "carboEster", "amide"]
+                      "carboEster", "amide", "carboEster1", "carboEster2",
+                      "amide1", "amide2"]
 idVars = ["id", "Vegetation", "Precip", "timePoint"]
 functional = functional.melt(idVars, functionalGroupsOG, "functionalGroup")
 

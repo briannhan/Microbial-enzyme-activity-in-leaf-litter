@@ -504,7 +504,8 @@ def plotBoxPlot(enzyme, fileName):
         py.legend(handles=patches, labels=legendLabels)
 
     figPath = tukeyFolder/enzyme/figName
-    py.savefig(figPath, bbox_inches="tight", pad_inches=0.04)
+    if os.path.exists(figPath) is False:
+        py.savefig(figPath, bbox_inches="tight", pad_inches=0.04)
     return
 
 
