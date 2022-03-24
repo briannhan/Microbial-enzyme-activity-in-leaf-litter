@@ -61,6 +61,9 @@ def shapiroWilk(timePoint, paramsDF):
     VmaxResultsDF = resultsTemplate.copy()
     KmResultsDF = resultsTemplate.copy()
     for name, group in paramsGrouped:
+        print(name)
+        print(group)
+        print('\n')
         column = "{0}, {1}".format(name[0], name[1])
         enzyme = name[2]
         parameter = name[-1]
@@ -91,7 +94,7 @@ T0VmaxVirgin, T0KmVirgin = shapiroWilk(0, parameters)
 T3VmaxVirgin, T3KmVirgin = shapiroWilk(3, parameters)
 T5VmaxVirgin, T5KmVirgin = shapiroWilk(5, parameters)
 T6VmaxVirgin, T6KmVirgin = shapiroWilk(6, parameters)
-
+# %%
 # (4) Logistics for exporting the virgin results, including declaring the path
 # to save the results and writing out the names for each sheet of the results
 statsResultsFolder = cwd/'Statistical analyses'
@@ -174,7 +177,7 @@ lnTransResults = [T0VmaxLn, T0KmLn, T3VmaxLn, T3KmLn, T5VmaxLn, T5KmLn,
                   T6VmaxLn, T6KmLn]
 exportShapiroWilk("Natural log transformed.xlsx", lnTransResults)
 lnTransParamsPath = eeaFolder/"Parameters - natural log transformed.xlsx"
-lnTransParams.to_excel(lnTransParamsPath, index=False)
+# lnTransParams.to_excel(lnTransParamsPath, index=False)
 # %%
 # Purpose: Transforming parameters by taking the log base 10 of each parameter
 
@@ -194,7 +197,7 @@ log10TransResults = [T0VmaxLog10, T0KmLog10, T3VmaxLog10, T3KmLog10,
                      T5VmaxLog10, T5KmLog10, T6VmaxLog10, T6KmLog10]
 exportShapiroWilk("Log 10 transformed.xlsx", log10TransResults)
 log10TransParamsPath = eeaFolder/"Parameters - log 10 transformed.xlsx"
-log10TransParams.to_excel(log10TransParamsPath, index=False)
+# log10TransParams.to_excel(log10TransParamsPath, index=False)
 '''Log transforming by base 10 has the same effects as the natural log, with
 the exact same results (by asterisks annotation) as indicated by the results
 files. So, this data transformation method does improve normality for the most
