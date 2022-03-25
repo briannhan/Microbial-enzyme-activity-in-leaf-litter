@@ -25,13 +25,28 @@ eeaFolder = cwd/'Enzyme activity data'
 eeaFilesDirs = os.listdir(eeaFolder)
 paramsPath = eeaFolder/'Parameters.xlsx'
 parameters = pd.read_excel(paramsPath)
+
+# Reading in wrangled litter chemistry data
+litterChemFolder = cwd/"Litter chemistry"
+litterChemPath = litterChemFolder/"Carbohydrates and Proteins FTIR.xlsx"
+litterChem = pd.read_excel(litterChemPath)
+
+# Renaming columns in the litter chemistry data to apply the existing
+# Shapiro-Wilk code to it
+litterChem["Parameter"] = "FTIR spectral area"
+litterChem.rename(columns={"functionalGroup": "Enzyme"}, inplace=True)
+litterChem["timePoint"] = litterChem["timePoint"].astype(int)
 # %%
 # Purpose: Performing the Shapiro-Wilk test
 
-# (1) Creating a dataframe containing only 1 column (enzyme names) that will
+# (1) Creating a dataframe containing only 1 column (enzyme names or litter
+# chemistry functional groups) that will
 # be used as a format for dataframes that hold results
 enzymeNames = ["AG", "AP", "BG", "BX", "CBH", "LAP", "NAG", "PPO"]
 resultsTemplate = pd.DataFrame({"Enzyme": enzymeNames})
+functionalGroups = list(set(litterChem.Enzyme.tolist()))
+resultsTemplateLC = pd.DataFrame({"functionalGroup": functionalGroups})
+# LC = litter chemistry
 
 
 # (2) Creating a function to perform the Shapiro-Wilk test and output 2
@@ -60,10 +75,9 @@ def shapiroWilk(timePoint, paramsDF):
                                       "Parameter"])
     VmaxResultsDF = resultsTemplate.copy()
     KmResultsDF = resultsTemplate.copy()
+    lcResultsDF = resultsTemplateLC.copy()  # lc = litter chemistry
+    parametersToTest = set(tpParams.Parameter.tolist())
     for name, group in paramsGrouped:
-        print(name)
-        print(group)
-        print('\n')
         column = "{0}, {1}".format(name[0], name[1])
         enzyme = name[2]
         parameter = name[-1]
@@ -79,11 +93,17 @@ def shapiroWilk(timePoint, paramsDF):
         elif p >= 0.05:
             resultStr = "o"
         enzymeInd = VmaxResultsDF[VmaxResultsDF["Enzyme"] == enzyme].index
+        fgInd = lcResultsDF[lcResultsDF.functionalGroup == enzyme].index
         if parameter == "Vmax":
             VmaxResultsDF.loc[enzymeInd, column] = resultStr
         elif parameter == "Km":
             KmResultsDF.loc[enzymeInd, column] = resultStr
-    return VmaxResultsDF, KmResultsDF
+        elif parameter == "FTIR spectral area":
+            lcResultsDF.loc[fgInd, column] = resultStr
+    if "Vmax" in parametersToTest or "Km" in parametersToTest:
+        return VmaxResultsDF, KmResultsDF
+    elif "FTIR spectral area" in parametersToTest:
+        return lcResultsDF
 
 
 # (3) Perform Shapiro-Wilk test for each enzyme parameter for each time point,
@@ -139,7 +159,7 @@ def exportShapiroWilk(fileName, resultsDFs):
 
 
 # (6) Export virgin Shapiro-Wilk results
-exportShapiroWilk("No transformations.xlsx", virginDFs)
+# exportShapiroWilk("No transformations.xlsx", virginDFs)
 # %%
 # Purpose: Transforming parameters by taking the natural log of each parameter
 '''Well, I'm thinking that, if I transform the data, I would need to transform
@@ -175,7 +195,7 @@ normality worsened.'''
 # (3) Exporting log-transformed parameters & Shapiro-Wilk test results
 lnTransResults = [T0VmaxLn, T0KmLn, T3VmaxLn, T3KmLn, T5VmaxLn, T5KmLn,
                   T6VmaxLn, T6KmLn]
-exportShapiroWilk("Natural log transformed.xlsx", lnTransResults)
+# exportShapiroWilk("Natural log transformed.xlsx", lnTransResults)
 lnTransParamsPath = eeaFolder/"Parameters - natural log transformed.xlsx"
 # lnTransParams.to_excel(lnTransParamsPath, index=False)
 # %%
@@ -195,10 +215,42 @@ T6VmaxLog10, T6KmLog10 = shapiroWilk(6, log10TransParams)
 # (3) Exporting log-transformed parameters & Shapiro-Wilk test results
 log10TransResults = [T0VmaxLog10, T0KmLog10, T3VmaxLog10, T3KmLog10,
                      T5VmaxLog10, T5KmLog10, T6VmaxLog10, T6KmLog10]
-exportShapiroWilk("Log 10 transformed.xlsx", log10TransResults)
+# exportShapiroWilk("Log 10 transformed.xlsx", log10TransResults)
 log10TransParamsPath = eeaFolder/"Parameters - log 10 transformed.xlsx"
 # log10TransParams.to_excel(log10TransParamsPath, index=False)
 '''Log transforming by base 10 has the same effects as the natural log, with
 the exact same results (by asterisks annotation) as indicated by the results
 files. So, this data transformation method does improve normality for the most
 part, except for T6 parameters as discussed above.'''
+# %%
+# Purpose: Performing Shapiro-Wilk on untransformed litter chemistry data
+
+# (1) Performing the Shapiro-Wilk test
+T0litterChemVirgin = shapiroWilk(0, litterChem)
+T3litterChemVirgin = shapiroWilk(3, litterChem)
+T5litterChemVirgin = shapiroWilk(5, litterChem)
+T6litterChemVirgin = shapiroWilk(6, litterChem)
+
+# (2) Exporting the Shapiro-Wilk test results
+noTransformPath = normTestFolder/"Litter chemistry - no transformations.xlsx"
+# with ExcelWriter(noTransformPath) as writer:
+#     T0litterChemVirgin.to_excel(writer, "T0", index=False)
+#     T3litterChemVirgin.to_excel(writer, "T3", index=False)
+#     T5litterChemVirgin.to_excel(writer, "T5", index=False)
+#     T6litterChemVirgin.to_excel(writer, "T6", index=False)
+"""The functional groups that exhibit non-normal behavior are:
+lipid: T3 ambient grassland
+carboEster1: T0 reduced CSS, T5 reduced CSS
+carboEster2: T3 ambient grassland, T6 reduced CSS
+total carbohydrate ester: T5 ambient CSS, T5 reduced CSS
+amide2: T3 reduced CSS, T5 reduced CSS, T6 ambient CSS
+total amide: T5 reduced CSS, T6 reduced CSS
+carbohydrate C-O stretching: T6 ambient CSS, T6 reduced grassland
+
+This constitutes almost all functional groups. So I'll apply the Box-Cox
+transformation to these functional groups, then re-analyze them with factorial
+ANOVAs and Tukey's. Pain peko
+"""
+# %%
+# Purpose: Performing the Box-Cox transformation on leaf litter chemistry
+# functional groups that exhibit non-normal behavior
