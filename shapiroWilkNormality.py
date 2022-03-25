@@ -233,11 +233,12 @@ T6litterChemVirgin = shapiroWilk(6, litterChem)
 
 # (2) Exporting the Shapiro-Wilk test results
 noTransformPath = normTestFolder/"Litter chemistry - no transformations.xlsx"
-# with ExcelWriter(noTransformPath) as writer:
-#     T0litterChemVirgin.to_excel(writer, "T0", index=False)
-#     T3litterChemVirgin.to_excel(writer, "T3", index=False)
-#     T5litterChemVirgin.to_excel(writer, "T5", index=False)
-#     T6litterChemVirgin.to_excel(writer, "T6", index=False)
+if os.path.exists(noTransformPath) is False:
+    with ExcelWriter(noTransformPath) as writer:
+        T0litterChemVirgin.to_excel(writer, "T0", index=False)
+        T3litterChemVirgin.to_excel(writer, "T3", index=False)
+        T5litterChemVirgin.to_excel(writer, "T5", index=False)
+        T6litterChemVirgin.to_excel(writer, "T6", index=False)
 """The functional groups that exhibit non-normal behavior are:
 lipid: T3 ambient grassland
 carboEster1: T0 reduced CSS, T5 reduced CSS
@@ -254,3 +255,33 @@ ANOVAs and Tukey's. Pain peko
 # %%
 # Purpose: Performing the Box-Cox transformation on leaf litter chemistry
 # functional groups that exhibit non-normal behavior
+
+# (1) Performing the Box-Cox transformation on these functional groups
+fg2trans = ["lipid", "carboEster1", "carboEster2", "carboEster", "amide2",
+            "amide", "C_O_stretching"]
+# list of functional groups to transform using Box-Cox
+lcBoxCox = litterChem.copy()  # litter chemistry data that will be transformed
+for fg in fg2trans:
+    untransformed = lcBoxCox.loc[lcBoxCox.Enzyme == fg, "value"]
+    transformed, exponent = stats.boxcox(untransformed)
+    lcBoxCox.loc[lcBoxCox.Enzyme == fg, "value"] = transformed
+    lcBoxCox.loc[lcBoxCox.Enzyme == fg, "exponent"] = exponent
+
+# (2) Performing Shapiro-Wilk on the transformed litter chemistry data
+T0litterChemBoxCox = shapiroWilk(0, lcBoxCox)
+T3litterChemBoxCox = shapiroWilk(3, lcBoxCox)
+T5litterChemBoxCox = shapiroWilk(5, lcBoxCox)
+T6litterChemBoxCox = shapiroWilk(6, lcBoxCox)
+
+# (3) Exporting the Shapiro-Wilk test results of the Box-Cox transformed litter
+# chemistry data
+lcBoxCoxPath = normTestFolder/"Litter chemistry - Box-Cox results.xlsx"
+if os.path.exists(lcBoxCoxPath) is False:
+    with ExcelWriter(lcBoxCoxPath) as excelFile:
+        T0litterChemBoxCox.to_excel(excelFile, "T0", index=False)
+        T3litterChemBoxCox.to_excel(excelFile, "T3", index=False)
+        T5litterChemBoxCox.to_excel(excelFile, "T5", index=False)
+        T6litterChemBoxCox.to_excel(excelFile, "T6", index=False)
+"""Ok well, overall, the Box-Cox transformation doesn't seem to improve
+normality that much for each individual treatment group. So, I won't be
+re-analyzing the litter chemistry data."""
