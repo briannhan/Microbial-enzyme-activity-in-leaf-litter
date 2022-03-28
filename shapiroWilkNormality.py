@@ -36,6 +36,9 @@ litterChem = pd.read_excel(litterChemPath)
 litterChem["Parameter"] = "FTIR spectral area"
 litterChem.rename(columns={"functionalGroup": "Enzyme"}, inplace=True)
 litterChem["timePoint"] = litterChem["timePoint"].astype(int)
+
+# Reading in the CAZymes gene domain relative abundance data
+CAZfolder = cwd/"CAZyme metagenomic data"
 # %%
 # Purpose: Performing the Shapiro-Wilk test
 
