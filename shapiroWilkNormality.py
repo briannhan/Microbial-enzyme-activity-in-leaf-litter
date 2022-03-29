@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 from pandas import ExcelWriter
 import numpy as np
+from matplotlib import pyplot as py
 
 # Reading in parameters file
 cwd = Path(os.getcwd())
@@ -39,16 +40,25 @@ litterChem["timePoint"] = litterChem["timePoint"].astype(int)
 
 # Reading in the CAZymes gene domain relative abundance data
 CAZfolder = cwd/"CAZyme metagenomic data"
+CAZpath = CAZfolder/"Wrangled CAZyme gene domains.xlsx"
+CAZ = pd.read_excel(CAZpath)
+
+# Renaming columns in the CAZymes gene domain data
+CAZ.rename(columns={"Substrate": "Enzyme"}, inplace=True)
+CAZ["timePoint"] = CAZ["timePoint"].astype(int)
 # %%
 # Purpose: Performing the Shapiro-Wilk test
 
-# (1) Creating a dataframe containing only 1 column (enzyme names or litter
-# chemistry functional groups) that will
+# (1) Creating a dataframe containing only 1 column (enzyme names, litter
+# chemistry functional groups, or CAZyme substrates) that will
 # be used as a format for dataframes that hold results
 enzymeNames = ["AG", "AP", "BG", "BX", "CBH", "LAP", "NAG", "PPO"]
 resultsTemplate = pd.DataFrame({"Enzyme": enzymeNames})
 functionalGroups = list(set(litterChem.Enzyme.tolist()))
 resultsTemplateLC = pd.DataFrame({"functionalGroup": functionalGroups})
+substrates = list(set(CAZ.Enzyme.tolist()))
+resultsTemplateCAZ = pd.DataFrame({"Substrate": substrates})
+CAZparameters = set(CAZ.Parameter.tolist())
 # LC = litter chemistry
 
 
@@ -79,6 +89,7 @@ def shapiroWilk(timePoint, paramsDF):
     VmaxResultsDF = resultsTemplate.copy()
     KmResultsDF = resultsTemplate.copy()
     lcResultsDF = resultsTemplateLC.copy()  # lc = litter chemistry
+    CAZresultsDF = resultsTemplateCAZ.copy()
     parametersToTest = set(tpParams.Parameter.tolist())
     for name, group in paramsGrouped:
         column = "{0}, {1}".format(name[0], name[1])
@@ -97,16 +108,21 @@ def shapiroWilk(timePoint, paramsDF):
             resultStr = "o"
         enzymeInd = VmaxResultsDF[VmaxResultsDF["Enzyme"] == enzyme].index
         fgInd = lcResultsDF[lcResultsDF.functionalGroup == enzyme].index
+        CAZind = CAZresultsDF[CAZresultsDF.Substrate == enzyme].index
         if parameter == "Vmax":
             VmaxResultsDF.loc[enzymeInd, column] = resultStr
         elif parameter == "Km":
             KmResultsDF.loc[enzymeInd, column] = resultStr
         elif parameter == "FTIR spectral area":
             lcResultsDF.loc[fgInd, column] = resultStr
+        elif parameter in CAZparameters:
+            CAZresultsDF.loc[CAZind, column] = resultStr
     if "Vmax" in parametersToTest or "Km" in parametersToTest:
         return VmaxResultsDF, KmResultsDF
     elif "FTIR spectral area" in parametersToTest:
         return lcResultsDF
+    else:
+        return CAZresultsDF
 
 
 # (3) Perform Shapiro-Wilk test for each enzyme parameter for each time point,
@@ -288,3 +304,82 @@ if os.path.exists(lcBoxCoxPath) is False:
 """Ok well, overall, the Box-Cox transformation doesn't seem to improve
 normality that much for each individual treatment group. So, I won't be
 re-analyzing the litter chemistry data."""
+# %%
+# Purpose: Testing the normality of untransformed CAZ data
+
+# (1) Performing Shapiro-Wilk on the untransformed CAZyme data
+T0CAZvirgin = shapiroWilk(0, CAZ)
+T3CAZvirgin = shapiroWilk(3, CAZ)
+T5CAZvirgin = shapiroWilk(5, CAZ)
+T6CAZvirgin = shapiroWilk(6, CAZ)
+
+# (2) Exporting the Shapiro-Wilk test results
+CAZnoTransformPath = normTestFolder/"CAZyme domains - No transformations.xlsx"
+if os.path.exists(CAZnoTransformPath) is False:
+    with ExcelWriter(CAZnoTransformPath) as CAZresultsFile:
+        T0CAZvirgin.to_excel(CAZresultsFile, "T0", index=False)
+        T3CAZvirgin.to_excel(CAZresultsFile, "T3", index=False)
+        T5CAZvirgin.to_excel(CAZresultsFile, "T5", index=False)
+        T6CAZvirgin.to_excel(CAZresultsFile, "T6", index=False)
+"""The substrates whose domain relative abundance show deviations from
+normality are
+
+Inulin: T3 Ambient CSS, T6 Reduced Grassland
+Hemicellulose: T5 Reduced Grassland
+Trehalose: T3 Ambient CSS
+Peptidoglycan: T6 Ambient CSS
+Pectin: T6 Reduced Grassland
+
+Time to perform Box-Cox transformations on these substrates
+"""
+# %%
+# Purpose: Performing Box-Cox transformations on the substrates whose domain
+# relative abundance shows deviations from normality and testing them again
+# after their respective transformations
+
+# (1) Performing Box-Cox transformations on the above substrates
+substrateTrans = ["Inulin", "Hemicellulose", "Trehalose", "Peptidoglycan",
+                  "Pectin"]
+CAZtransformState = "Not transformed"
+"""While performing a Box-Cox transformation, there's a value that's exactly
+0: T032X Inulin at time point 0, CSS Ambient. I'm setting that value to
+0.00001"""
+CAZ.loc[CAZ["value"] == 0, "value"] = 0.00001
+if CAZtransformState == "Not transformed":
+    for substrate in substrateTrans:
+        untransformed = CAZ.loc[CAZ.Enzyme == substrate, "value"]
+        transformed, exponent = stats.boxcox(untransformed)
+        CAZ.loc[CAZ.Enzyme == substrate, "value"] = transformed
+        CAZ.loc[CAZ.Enzyme == substrate, "exponent"] = exponent
+    CAZtransformState = "Transformed"
+
+# (2) Performing Shapiro-Wilk on the Box-Cox transformed substrates
+T0CAZboxCox = shapiroWilk(0, CAZ)
+T3CAZboxCox = shapiroWilk(3, CAZ)
+T5CAZboxCox = shapiroWilk(5, CAZ)
+T6CAZboxCox = shapiroWilk(6, CAZ)
+
+# (3) Exporting the Shapiro-Wilk test results
+CAZboxCoxPath = normTestFolder/"CAZyme domains - Box-Cox.xlsx"
+if os.path.exists(CAZboxCoxPath) is False:
+    with ExcelWriter(CAZboxCoxPath) as CAZboxCoxResults:
+        T0CAZboxCox.to_excel(CAZboxCoxResults, "T0", index=False)
+        T3CAZboxCox.to_excel(CAZboxCoxResults, "T3", index=False)
+        T5CAZboxCox.to_excel(CAZboxCoxResults, "T5", index=False)
+        T6CAZboxCox.to_excel(CAZboxCoxResults, "T6", index=False)
+"""Ok well, the transformation didn't improve normality for these substrates.
+So, the data is already normal prior to the transformation. Let's do factorial
+ANOVAs and Tukey's, now."""
+
+# (4) Testing a Q-Q plot as a way to evaluate normality. I'll make a Q-Q plot
+# of the total CAZyme domains.
+CAZtotal = CAZ.loc[CAZ.Enzyme == "Total", "value"]
+totalQQplot = stats.probplot(CAZtotal, plot=py)
+"""Doesn't look quite normal to me, but Shapiro-Wilk states that this is
+normal. Nande? Could it be because, I'm plotting a probability plot on ALL of
+the 'total' values across all 3 independent variables, so I'm effectively
+plotting multiple populations onto a plot for a single population, making it
+look like they're not normal because they're from multiple populations?
+
+Well, this explanation makes sense, actually. I'm plotting multiple populations
+onto a single plot."""

@@ -573,4 +573,158 @@ results2amide2 = factorialANOVA("amide2", "Protein", None, timeXppt, timeXveg,
 results3amide2 = factorialANOVA("amide2", "Protein")
 """Only precipitation is significant"""
 # %%
+# Purpose: Reading in the CAZyme domains data and wrangling it
+
+# (1) Reading in the CAZyme domains data
+CAZfolder = cwd/"CAZyme metagenomic data"
+CAZpath = CAZfolder/"Wrangled CAZyme gene domains.xlsx"
+CAZ = pd.read_excel(CAZpath)
+
+# (2) Wrangling the CAZyme domains data by renaming a column and attaching the
+# dataframe to the parameters dataframe
+CAZ.rename(columns={"Substrate": "Enzyme"}, inplace=True)
+parameters = pd.concat([parameters, CAZ])
+
+# %%
+# Purpose: Running factorial ANOVAs on hemicellulose CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1hemi = factorialANOVA("Hemicellulose", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2hemi = factorialANOVA("Hemicellulose", "Relative abundance", None,
+                              timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for all main effects and only the two-way interaction
+# time x vegetation
+results3hemi = factorialANOVA("Hemicellulose", "Relative abundance", None,
+                              timeXveg)
+# %%
+# Purpose: Running factorial ANOVAS on lignin CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1lignin = factorialANOVA("Lignin", "Relative abundance", "Y")
+"""And there's a significant three-way interaction right off the bat"""
+# %%
+# Purpose: Running factorial ANOVAs on polysaccharide CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1poly = factorialANOVA("Polysaccharide", "Relative abundance", "Y")
+"""And, already, a significant three-way interaction off the bat"""
+# %%
+# Purpose: Running factorial ANOVAs on oligosaccharide CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1oligo = factorialANOVA("Oligosaccharides", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2oligo = factorialANOVA("Oligosaccharides", "Relative abundance", None,
+                               timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for main effects and only the two-way interaction time x veg
+results3oligo = factorialANOVA("Oligosaccharides", "Relative abundance", None,
+                               timeXveg)
+# %%
+# Purpose: Running factorial ANOVAs on cell wall CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1cellWall = factorialANOVA("Cell_wall", "Relative abundance", "Y")
+"""Another three-way interaction off the bat. Great."""
+# %%
+# Purpose: Running factorial ANOVAs on Inulin CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1inulin = factorialANOVA("Inulin", "Relative abundance", "Y")
+"""Seriously? Another three-way interaction? How am I supposed to interpret
+three-way interactions? They're too complicated"""
+# %%
+# Purpose: Running factorial ANOVAs on starch CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1starch = factorialANOVA("Starch", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2starch = factorialANOVA("Starch", "Relative abundance", None, timeXppt,
+                                timeXveg, vegXppt)
+
+# (3) Testing for main effects and only the vegetation x precipitaion two-way
+# interaction
+results3starch = factorialANOVA("Starch", "Relative abundance", None, vegXppt)
+# %%
+# Purpose: Running factorial ANOVAs on trehalose CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1trehalose = factorialANOVA("Trehalose", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2trehalose = factorialANOVA("Trehalose", "Relative abundance", None,
+                                   timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for main effects only
+results3trehalose = factorialANOVA("Trehalose", "Relative abundance")
+# %%
+# Purpose: Running factorial ANOVAs on cellulose CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1cellulose = factorialANOVA("Cellulose", "Relative abundance", "Y")
+"""Another three-way interaction off the bat. Great."""
+# %%
+# Purpose: Running factorial ANOVAs on pectin CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1pectin = factorialANOVA("Pectin", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2pectin = factorialANOVA("Pectin", "Relative abundance", None, timeXppt,
+                                timeXveg, vegXppt)
+
+# (3) Testing for main effects and the two-way interaction of veg x ppt
+results3pectin = factorialANOVA("Pectin", "Relative abundance", None, vegXppt)
+# %%
+# Purpose: Running factorial ANOVAs on glycogen CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1glycogen = factorialANOVA("Glycogen", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2glycogen = factorialANOVA("Glycogen", "Relative abundance", None,
+                                  timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for main effects and the time x vegetation interaction only
+results3glycogen = factorialANOVA("Glycogen", "Relative abundance", None,
+                                  timeXveg)
+# %%
+# Purpose: Running factorial ANOVAs on peptidoglycan CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1peptido = factorialANOVA("Peptidoglycan", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2peptido = factorialANOVA("Peptidoglycan", "Relative abundance", None,
+                                 timeXppt, timeXveg, vegXppt)
+
+# (3) Testing for main effects only
+results3peptido = factorialANOVA("Peptidoglycan", "Relative abundance")
+# %%
+# Purpose: Running factorial ANOVAs on chitin CAZyme domains
+
+# (1) Testing for all interactions (two-way and three-way)
+results1chitin = factorialANOVA("Chitin", "Relative abundance", "Y")
+
+# (2) Testing for two-way interactions only
+results2chitin = factorialANOVA("Chitin", "Relative abundance", None, timeXppt,
+                                timeXveg, vegXppt)
+
+# (3) Testing for all main effects and only the time x veg two-way interaction
+results3chitin = factorialANOVA("Chitin", "Relative abundance", None, timeXveg)
+
+# (4) Testing for main effects only
+results4chitin = factorialANOVA("Chitin", "Relative abundance")
+# %%
+# Purpose: Running factorial ANOVAs on total CAZyme domain counts
+
+# (1) Testing for all interactions (two-way and three-way)
+results1total = factorialANOVA("Total", "Total CAZyme domains", "Y")
+"""And a three-way interaction off the bat. Great."""
+# %%
 print(datetime.now() - start)
