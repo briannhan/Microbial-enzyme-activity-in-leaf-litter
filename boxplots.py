@@ -49,6 +49,17 @@ litterChem["timePoint"] = litterChem["timePoint"].astype(str)
 parameters = pd.concat([parameters, litterChem])
 functionalGroups = set(litterChem.Enzyme.tolist())
 
+# Loading in the wrangled CAZymde data, renaming columns,
+# and concatenating it to the parameters dataframe
+CAZfolder = cwd/"CAZyme metagenomic data"
+CAZpath = CAZfolder/"Wrangled CAZyme gene domains.xlsx"
+CAZ = pd.read_excel(CAZpath)
+CAZ.rename(columns={"Substrate": "Enzyme", "Precip": "Precipitation"},
+           inplace=True)
+CAZ["timePoint"] = CAZ["timePoint"].astype(str)
+substrates = set(CAZ.Enzyme.tolist())
+parameters = pd.concat([parameters, CAZ])
+
 '''I'm changing the treatments up. Originally timePoint was recorded as 0, 3,
 5, and 6, but after briefly looking at a draft of a manuscript by Ashish, I'm
 changing them so that they are, accordingly, 1, 2, 3, 4 to fall in line with
@@ -86,8 +97,9 @@ renameTreatments = {"0": "1", "3": "2", "5": "3", "6": "4",  # timepoints only
                     "3 x Ambient x CSS": "2, CSS, A",
                     "5 x Ambient x CSS": "3, CSS, A",
                     "6 x Ambient x CSS": "4, CSS, A",
-                    # three-way (PPO Vmax only; no other Vmax, Km, or litter
-                    # chemistry functional groups have 3-way interactions)
+                    # three-way (PPO Vmax and also CAZyme domain relative
+                    # abundance only; no other enzyme Vmax, Km, or litter
+                    # chemistry functional groups exhibit a 3-way interaction)
 
                     "CSS x Reduced": "CSS, D",  # Vegetation x Precipitation
                     "CSS x Ambient": "CSS, A",
@@ -98,7 +110,7 @@ oldTreatments = renameTreatments.keys()
 # This dict records the old time points & treatment combinations as the keys
 # and the new time points & treatment combinations as the values
 # %%
-# Purpose: Plotting AP Vmax and/or Km possibly as a proof of concept to see
+# Purpose: Plotting AP Vmax and/or Km as a proof of concept to see
 # if the process can be abstracted into a single function or a few functions
 
 # (1) Isolating the files that contain the annotated groups
@@ -259,6 +271,10 @@ def annotationFiles(enzyme):
     particular main effect or interaction.
 
     """
+    if enzyme == "Total":
+        enzyme = "Total CAZyme"
+        '''The name in the wrangled CAZyme data is "Total", while the name of
+        the folder is "Total CAZyme".'''
     ezTukeyFolder = tukeyFolder/enzyme
     ezTukeyContents = os.listdir(ezTukeyFolder)
     annotatedFiles = []
@@ -288,6 +304,10 @@ def annotationFileRename(enzyme, fileName):
     combinations renamed and sorted in ascending order.
 
     """
+    if enzyme == "Total":
+        enzyme = "Total CAZyme"
+        '''The name in the wrangled CAZyme data is "Total", while the name of
+        the folder is "Total CAZyme".'''
     ezTukeyFolder = tukeyFolder/enzyme
     annPath = ezTukeyFolder/fileName
     annotations = pd.read_excel(annPath).dropna(1)
@@ -308,7 +328,9 @@ def annotationFileRename(enzyme, fileName):
 def TukeyGroupCols(enzyme, fileName):
     """
     Creates Tukey group columns out of the original independent variables in
-    the parameter dataframe.
+    the parameter dataframe. The dataframe that it produces is formatted such
+    that the columns are the Tukey groups, and the values in each column is
+    the dependent variable of a subject within that Tukey group.
 
     Parameters
     ----------
@@ -323,7 +345,8 @@ def TukeyGroupCols(enzyme, fileName):
 
     Returns
     -------
-    None.
+    A parameters dataframe whose columns are the Tukey groups, and each row
+    represents the dependent variable of a subject within that Tukey group.
 
     """
     splitAnnotateName = fileName.split(", ")
@@ -421,6 +444,12 @@ def plotBoxPlot(enzyme, fileName):
     elif parameter == "FTIR spectral area":
         y = parameter + " (%)"
         formattedParam = parameter
+    elif parameter == "Relative abundance":
+        y = "CAZyme domain relative abundance (%)"
+        formattedParam = y
+    elif parameter == "Total CAZyme domains":
+        y = parameter
+        formattedParam = y
     py.ylabel(y, fontfamily="serif", fontsize="xx-large",
               fontstyle="oblique")
     py.yticks(fontsize="xx-large")
@@ -503,7 +532,13 @@ def plotBoxPlot(enzyme, fileName):
     if len(legendLabels) > 0 and len(patches) > 0:
         py.legend(handles=patches, labels=legendLabels)
 
-    figPath = tukeyFolder/enzyme/figName
+    # Creating a file path to save the figure. This if-elif statement is to
+    # deal with total CAZyme counts. In the wrangled CAZyme data, it is named
+    # as "Total" while the folder name is "Total CAZyme"
+    if enzyme != "Total":
+        figPath = tukeyFolder/enzyme/figName
+    elif enzyme == "Total":
+        figPath = tukeyFolder/"Total CAZyme"/figName
     if os.path.exists(figPath) is False:
         py.savefig(figPath, bbox_inches="tight", pad_inches=0.04)
     return
@@ -552,5 +587,9 @@ def plotAllBoxPlots(enzyme):
 # Purpose: Make boxplots for litter chemistry data
 # for functionalGroup in functionalGroups:
 #     plotAllBoxPlots(functionalGroup)
+# %%
+# Purpose: Make perliminary boxplots for CAZyme domain data
+# for substrate in substrates:
+#     plotAllBoxPlots(substrate)
 # %%
 print(datetime.now() - start)

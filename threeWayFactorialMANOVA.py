@@ -104,6 +104,11 @@ VmaxAG = parameters[conditions]
 
 # (2) Initial linear regression model and ANOVA attempt
 initFormula = "value ~ C(timePoint, Sum)*C(Vegetation, Sum)*C(Precip, Sum)"
+"""The Sum contrast allows for type 1, 2, and 3 ANOVAs to have the exact same
+sum of squares for the main effects, their interactions, and the residuals. If
+Sum is not included in the formula, then type 1 & 2 sum of squares will still
+be the same as if Sum was used, but type 3 sum of squares won't be the same. In
+other words, only type 1 & 2 sum of squares will be correctly calculated."""
 initModel = ols(formula=initFormula, data=VmaxAG).fit()
 initialResults = anova_lm(initModel, typ=3)
 '''So the three-way interaction isn't significant, time to split it up into
@@ -279,6 +284,27 @@ results2VmaxBG = factorialANOVA("BG", "Vmax", twoWay1=timeXppt,
 
 # (3) Testing model with no interactions
 results3VmaxBG = factorialANOVA("BG", "Vmax")
+
+# (4) Testing whether I should be wrapping vegetation and precip in C()
+BGparams = parameters[(parameters.Enzyme == "BG")
+                      & (parameters.Parameter == "Vmax")]
+formuVegPptWrap = "value ~ C(timePoint) + C(Vegetation) + C(Precip)"
+modelVegPptWrap = ols(formula=formuVegPptWrap, data=BGparams).fit()
+resultsVegPptWrap = anova_lm(modelVegPptWrap, typ=2)
+"""So it makes no difference whether or not I wrap Vegetation or Precip in C()
+"""
+
+# (5) Testing what happens if I don't wrap timePoint in C()
+formuTimeUnwrapped = "value ~ timePoint + Vegetation + Precip"
+modelTimeUnwrapped = ols(formula=formuTimeUnwrapped, data=BGparams).fit()
+resultsTimeUnwrapped = anova_lm(modelTimeUnwrapped, typ=2)
+"""Not wrapping time, makes quite a big difference. I'm assuming that this is
+because time is already a numerical variable (integer), so by not wrapping it,
+the linear regression model just performs a regression on time instead of
+treating time as categorical. The C() is used to explicitly denote a variable
+as categorical. Since Vegetation and Precip have values of string in the first
+place, they're categorical by default, but time isn't a string by default, so
+I have to wrap time with C()."""
 # %%
 # Purpose: Running factorial ANOVAs for BG Km
 

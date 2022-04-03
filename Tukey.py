@@ -27,7 +27,8 @@ from statsmodels.sandbox.stats.multicomp import MultiComparison as MC
 from pathlib import Path
 import cld
 
-# (2) Reading in ANOVA results
+# (2) Reading in ANOVA results for enzyme activity (Vmax & Km), litter
+# chemistry, and CAZyme domain relative abundance
 start = dt.now()
 cwd = Path(os.getcwd())
 cwdDirsFiles = os.listdir(cwd)
@@ -35,19 +36,26 @@ statsFolder = cwd/'Statistical analyses'
 statsContents = os.listdir(statsFolder)
 ANOVApath = statsFolder/'ANOVA results.xlsx'
 ANOVAresults = ExcelFile(ANOVApath)
+# Enzyme activity ANOVA results
 VmaxANOVA = pd.read_excel(ANOVAresults, "Vmax").dropna(axis=1)
 VmaxANOVA = VmaxANOVA[VmaxANOVA.Enzyme != "MANOVA"]
 KmANOVA = pd.read_excel(ANOVAresults, "Km").dropna(axis=1)
 KmANOVA = KmANOVA[KmANOVA.Enzyme != "MANOVA"]
+# ANOVA main effects and interactions
+ANOVAcols = VmaxANOVA.columns.tolist()
+mainEffects = ANOVAcols[1:4]
+interactions = ANOVAcols[4:]
+twoWay = interactions[:-1]
+# Litter chemistry ANOVA results
 litterChemANOVA = pd.read_excel(ANOVAresults, "litterChemistry").dropna(1)
 functionalGroups = litterChemANOVA.functionalGroup.tolist()
 carboFG = functionalGroups[:3]
 miscFG = functionalGroups[3:5]
 litterChemANOVA.rename(columns={"functionalGroup": "Enzyme"}, inplace=True)
-ANOVAcols = VmaxANOVA.columns.tolist()
-mainEffects = ANOVAcols[1:4]
-interactions = ANOVAcols[4:]
-twoWay = interactions[:-1]
+# CAZyme domains ANOVA results
+CAZymeANOVA = pd.read_excel(ANOVAresults, "CAZyme domains").dropna(1)
+substrates = CAZymeANOVA.Substrate.tolist()
+CAZymeANOVA.rename(columns={"Substrate": "Enzyme"}, inplace=True)
 
 # (3) Reading in log 10 transformed parameters
 activityFolder = cwd/'Enzyme activity data'
@@ -121,6 +129,8 @@ def Tukey(ez, pm):
         ANOVAdf = KmANOVA
     elif pm in functionalGroups:
         ANOVAdf = litterChemANOVA
+    elif pm == "Relative abundance" or pm == "Total CAZyme domains":
+        ANOVAdf = CAZymeANOVA
 
     ezANOVAind = ANOVAdf[ANOVAdf.Enzyme == ez].index.tolist()[0]
     conditions = (parameters.Enzyme == ez) & (parameters.Parameter == pm)
@@ -153,7 +163,7 @@ def Tukey(ez, pm):
         mainEnotInInter = []
         effectToTest = []
 
-    if len(interToTest) > 0:  # Perform simple main effects Tukey test
+    if len(interToTest) > 0:  # Perform Tukey test on interactions
         # print(interToTest)
         for interaction in interToTest:
             if interaction == "Three-way":
@@ -168,7 +178,14 @@ def Tukey(ez, pm):
             tukeyResults = MC(paramsOI.value, groups).tukeyhsd().summary()
 
             # Writing Tukey results out to a .txt file
-            resultsFolder = statsFolder/"Tukey posthoc"/ez
+            if ez != "Total":
+                # This if-elif statement is for dealing with total CAZyme
+                # domain counts. The name (Total) taken from the
+                # ANOVA results and the wrangled data does not match the name
+                # of the folder I created (Total CAZyme)
+                resultsFolder = statsFolder/"Tukey posthoc"/ez
+            elif ez == "Total":
+                resultsFolder = statsFolder/"Tukey posthoc"/"Total CAZyme"
             tukeyTxtName = "{0}, {1}.txt".format(pm, interaction)
             tukeyTxtPath = resultsFolder/tukeyTxtName
             txtFile = open(tukeyTxtPath, "w")
@@ -186,7 +203,8 @@ def Tukey(ez, pm):
             tukeyExcelName = "{0}, {1}.xlsx".format(pm, interaction)
             tukeyExcelPath = resultsFolder/tukeyExcelName
             tukeyDF = pd.read_csv(tukeyTxtPath, sep=",", header=0).dropna(1)
-            tukeyDF.to_excel(tukeyExcelPath, pm, index=False)
+            if os.path.exists(tukeyExcelPath) is False:
+                tukeyDF.to_excel(tukeyExcelPath, pm, index=False)
     if len(mainEnotInInter) > 0:
         effectToTest = mainEnotInInter
     elif len(interToTest) == 0 and len(sigMainEffect) > 0:
@@ -496,10 +514,10 @@ parameters = pd.concat([parameters, litterChem])
 # groups("carboEster")
 
 # Testing for carboEster1 only
-Tukey("carboEster1", "carboEster1")
+# Tukey("carboEster1", "carboEster1")
 
 # Testing for carboEster2 only
-Tukey("carboEster2", "carboEster2")
+# Tukey("carboEster2", "carboEster2")
 
 # Testing for lipids
 # Tukey("lipid", "lipid")
@@ -515,10 +533,10 @@ Tukey("carboEster2", "carboEster2")
 # groups("amide")
 
 # Testing for amide1 only
-Tukey("amide1", "amide1")
+# Tukey("amide1", "amide1")
 
 # Testing for amide2 only
-Tukey("amide2", "amide2")
+# Tukey("amide2", "amide2")
 
 # (3) Creating compact letter displays for the Tukey tests conducted so far on
 # litter chemistry data
@@ -600,5 +618,44 @@ have not been tested yet by Tukey's post-hoc.
 #                 print("CLD failed to be created for lipid, vegetation")
 #                 break
 """And that's it. I can start making boxplots for litter chemistry data now"""
+# %%
+# Purpose: Performing Tukey's post-hoc on CAZyme domain relative abundance
+
+# (1) Reading in the wrangled CAZyme data
+CAZymePath = cwd/"CAZyme metagenomic data"/"Wrangled CAZyme gene domains.xlsx"
+CAZ = pd.read_excel(CAZymePath)
+CAZ.rename(columns={"Substrate": "Enzyme"}, inplace=True)
+CAZ["timePoint"] = CAZ["timePoint"].astype(str)
+parameters = pd.concat([parameters, CAZ])
+
+# (2) Performing preliminary Tukey's post-hoc using the Tukey function I've
+# written. Additional Tukey's post-hoc might be performed later. Also create
+# compact letter displays for these Tukey results
+for substrate in substrates:
+    if substrate != "Total":
+        parameter = "Relative abundance"
+        folderName = substrate
+    elif substrate == "Total":
+        parameter = "Total CAZyme domains"
+        folderName = "Total CAZyme"
+    Tukey(substrate, parameter)  # Performing the Tukey test
+    # And now, creating the compact letter displays
+    folderPath = statsFolder/"Tukey posthoc"/folderName
+    folderContents = os.listdir(folderPath)
+    for content in folderContents:
+        # format of Tukey results in these folders are either a .txt file
+        # or an Excel .xlsx file
+        if content.endswith(".xlsx") and parameter in content:
+            resultsPath = folderPath/content
+            rawResults = pd.read_excel(resultsPath)
+            cldDF = cld.main(rawResults)
+            contentStrip = content.rstrip(".xlsx")
+            cldFileName = contentStrip + ", groups, annotated.xlsx"
+            cldPath = folderPath/cldFileName
+            if os.path.exists(cldPath) is False:
+                cldDF.to_excel(cldPath, index=False)
+"""I couldn't declare any interactions that were significant by ANOVA to be
+insignificant by Tukey's. I'll make boxplots out of these results, and I'll
+see if I still need to conduct more Tukey's"""
 # %%
 print(dt.now() - start)
