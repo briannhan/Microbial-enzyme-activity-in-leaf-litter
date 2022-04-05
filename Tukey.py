@@ -461,26 +461,28 @@ def exportTukeyResults(endFolder, parameter, indeVar, resultsTable):
 
     """
     folderPath = statsFolder/"Tukey posthoc"/endFolder
-
-    # Creating text file
     txtName = "{0}, {1}.txt".format(parameter, indeVar)
     txtPath = folderPath/txtName
-    txtFile = open(txtPath, "w")
-    resultsRows = len(resultsTable)
-    for i in range(resultsRows):
-        row = resultsTable[i]
-        for element in row:
-            element = str(element)
-            txtFile.write(element)
-            txtFile.write(',')
-        txtFile.write('\n')
-    txtFile.close()
-
-    # Creating Excel file
-    resultsDF = pd.read_csv(txtPath, sep=",")
-    excelName = "{0}, {1}.xlsx".format(parameter, indeVar)
-    excelPath = folderPath/excelName
-    resultsDF.to_excel(excelPath, index=False)
+    if os.path.exists(txtPath) is False:
+        # Creates and writes a text file of raw Tukey results if this file
+        # doesn't exist yet
+        txtFile = open(txtPath, "w")
+        resultsRows = len(resultsTable)
+        for i in range(resultsRows):
+            row = resultsTable[i]
+            for element in row:
+                element = str(element)
+                txtFile.write(element)
+                txtFile.write(',')
+            txtFile.write('\n')
+        txtFile.close()
+        # Creates an Excel file of raw Tukey results. Essentially
+        # translating the .txt file over to the Excel file format
+        resultsDF = pd.read_csv(txtPath, sep=",")
+        excelName = "{0}, {1}.xlsx".format(parameter, indeVar)
+        excelPath = folderPath/excelName
+        if os.path.exists(excelPath) is False:
+            resultsDF.to_excel(excelPath, index=False)
     return
 
 
@@ -540,36 +542,36 @@ parameters = pd.concat([parameters, litterChem])
 
 # (3) Creating compact letter displays for the Tukey tests conducted so far on
 # litter chemistry data
-for functionalGroup in functionalGroups:
-    litterChemTukeyFolder = statsFolder/"Tukey posthoc"/functionalGroup
-    files = os.listdir(litterChemTukeyFolder)
+# for functionalGroup in functionalGroups:
+#     litterChemTukeyFolder = statsFolder/"Tukey posthoc"/functionalGroup
+#     files = os.listdir(litterChemTukeyFolder)
 
-    # Obtaining only the Excel raw Tukey results files, not the groups files
-    rawResultsFiles = []
-    for file in files:
-        if file.endswith(".xlsx") and "groups" not in file:
-            rawResultsFiles.append(file)
+#     # Obtaining only the Excel raw Tukey results files, not the groups files
+#     rawResultsFiles = []
+#     for file in files:
+#         if file.endswith(".xlsx") and "groups" not in file:
+#             rawResultsFiles.append(file)
 
-    # Creating compact letter displays associated with each raw Tukey results
-    # file
-    for file in rawResultsFiles:
-        filePath = litterChemTukeyFolder/file
-        rawResults = pd.read_excel(filePath)
-        fileCLD = cld.main(rawResults)
-        # The cld.main() method returns a dataframe if the cld it creates,
-        # matches the raw Tukey results. If the cld doesn't match the raw
-        # Tukey results, then it doesn't return anything. This if statement
-        # is to check if the method returns a dataframe instead of nothing.
-        if type(fileCLD) is not None:
-            fileStripped = file.rstrip(".xlsx")
-            cldName = fileStripped + ", groups, annotated.xlsx"
-            cldPath = litterChemTukeyFolder/cldName
-            if os.path.exists(cldPath) is False:
-                fileCLD.to_excel(cldPath, index=False)
-        elif type(fileCLD) is None:
-            print(file)
-            print("Failed to create CLD for these results")
-            print('\n')
+#     # Creating compact letter displays associated with each raw Tukey results
+#     # file
+#     for file in rawResultsFiles:
+#         filePath = litterChemTukeyFolder/file
+#         rawResults = pd.read_excel(filePath)
+#         fileCLD = cld.main(rawResults)
+#         # The cld.main() method returns a dataframe if the cld it creates,
+#         # matches the raw Tukey results. If the cld doesn't match the raw
+#         # Tukey results, then it doesn't return anything. This if statement
+#         # is to check if the method returns a dataframe instead of nothing.
+#         if type(fileCLD) is not None:
+#             fileStripped = file.rstrip(".xlsx")
+#             cldName = fileStripped + ", groups, annotated.xlsx"
+#             cldPath = litterChemTukeyFolder/cldName
+#             if os.path.exists(cldPath) is False:
+#                 fileCLD.to_excel(cldPath, index=False)
+#         elif type(fileCLD) is None:
+#             print(file)
+#             print("Failed to create CLD for these results")
+#             print('\n')
 """Tukey's post-hoc rendered some main effects and interactions that were found
 to be significant by ANOVAs to be insignificant. They are
 
@@ -631,31 +633,125 @@ parameters = pd.concat([parameters, CAZ])
 # (2) Performing preliminary Tukey's post-hoc using the Tukey function I've
 # written. Additional Tukey's post-hoc might be performed later. Also create
 # compact letter displays for these Tukey results
-for substrate in substrates:
-    if substrate != "Total":
-        parameter = "Relative abundance"
-        folderName = substrate
-    elif substrate == "Total":
-        parameter = "Total CAZyme domains"
-        folderName = "Total CAZyme"
-    Tukey(substrate, parameter)  # Performing the Tukey test
-    # And now, creating the compact letter displays
-    folderPath = statsFolder/"Tukey posthoc"/folderName
-    folderContents = os.listdir(folderPath)
-    for content in folderContents:
-        # format of Tukey results in these folders are either a .txt file
-        # or an Excel .xlsx file
-        if content.endswith(".xlsx") and parameter in content:
-            resultsPath = folderPath/content
-            rawResults = pd.read_excel(resultsPath)
-            cldDF = cld.main(rawResults)
-            contentStrip = content.rstrip(".xlsx")
-            cldFileName = contentStrip + ", groups, annotated.xlsx"
-            cldPath = folderPath/cldFileName
-            if os.path.exists(cldPath) is False:
-                cldDF.to_excel(cldPath, index=False)
+# for substrate in substrates:
+#     if substrate != "Total":
+#         parameter = "Relative abundance"
+#         folderName = substrate
+#     elif substrate == "Total":
+#         parameter = "Total CAZyme domains"
+#         folderName = "Total CAZyme"
+#     Tukey(substrate, parameter)  # Performing the Tukey test
+#     # And now, creating the compact letter displays
+#     folderPath = statsFolder/"Tukey posthoc"/folderName
+#     folderContents = os.listdir(folderPath)
+#     for content in folderContents:
+#         # format of Tukey results in these folders are either a .txt file
+#         # or an Excel .xlsx file
+#         if content.endswith(".xlsx") and parameter in content:
+#             resultsPath = folderPath/content
+#             rawResults = pd.read_excel(resultsPath)
+#             cldDF = cld.main(rawResults)
+#             contentStrip = content.rstrip(".xlsx")
+#             cldFileName = contentStrip + ", groups, annotated.xlsx"
+#             cldPath = folderPath/cldFileName
+#             if os.path.exists(cldPath) is False:
+#                 cldDF.to_excel(cldPath, index=False)
 """I couldn't declare any interactions that were significant by ANOVA to be
 insignificant by Tukey's. I'll make boxplots out of these results, and I'll
 see if I still need to conduct more Tukey's"""
+# %%
+# Purpose: Perform additional Tukey's post-hoc (and make boxplots) on other
+# main effects and interactions on CAZyme domain relative abundance.
+"""The substrates that I will perform additional Tukey's post-hoc test on
+includes
+
+Cell wall: time, vegetation
+Cellulose: time
+Lignin: vegetation, precipitation
+Polysaccharide: time, vegetation
+
+I will also make boxplots using these additional Tukey results
+"""
+
+# (1) Performing additional Tukey's post-hoc
+# Additional Tukey's on cell wall CAZyme domains
+cellWallDF = parameters[parameters.Enzyme == "Cell_wall"]
+cellWallTime = MC(cellWallDF.value, cellWallDF.timePoint).tukeyhsd().summary()
+exportTukeyResults("Cell_wall", "Relative abundance", "timePoint",
+                   cellWallTime)
+cellWallVeg = MC(cellWallDF.value, cellWallDF.Vegetation).tukeyhsd().summary()
+exportTukeyResults("Cell_wall", "Relative abundance", "Vegetation",
+                   cellWallVeg)
+# Additional Tukey's on cellulose CAZyme domains
+celluloseDF = parameters[parameters.Enzyme == "Cellulose"]
+celluloseTime = MC(celluloseDF.value,
+                   celluloseDF.timePoint).tukeyhsd().summary()
+exportTukeyResults("Cellulose", "Relative abundance", "timePoint",
+                   celluloseTime)
+# Additional Tukey's on lignin CAZyme domains
+ligninDF = parameters[parameters.Enzyme == "Lignin"]
+ligninVeg = MC(ligninDF.value, ligninDF.Vegetation).tukeyhsd().summary()
+exportTukeyResults("Lignin", "Relative abundance", "Vegetation", ligninVeg)
+ligninPpt = MC(ligninDF.value, ligninDF.Precip).tukeyhsd().summary()
+exportTukeyResults("Lignin", "Relative abundance", "Precip", ligninPpt)
+# Additional Tukey's on miscellaneous polysaccharide CAZyme domains
+polysaccharideDF = parameters[parameters.Enzyme == "Polysaccharide"]
+polysaccharideTime = MC(polysaccharideDF.value,
+                        polysaccharideDF.timePoint).tukeyhsd().summary()
+exportTukeyResults("Polysaccharide", "Relative abundance", "timePoint",
+                   polysaccharideTime)
+polysaccharideVeg = MC(polysaccharideDF.value,
+                       polysaccharideDF.Vegetation).tukeyhsd().summary()
+exportTukeyResults("Polysaccharide", "Relative abundance", "Vegetation",
+                   polysaccharideVeg)
+
+# (2) Creating compact letter displays for these additional Tukey's results
+substratesRetest = ["Cell_wall", "Lignin", "Cellulose", "Polysaccharide"]
+for substrate in substratesRetest:
+    resultsFolder = statsFolder/"Tukey posthoc"/substrate
+    allFiles = os.listdir(resultsFolder)
+    rawResults = []
+    cldFiles = []
+
+    # Obtaining 2 lists, 1 of only raw results, 1 of only the compact letter
+    # displays created from those results
+    for file in allFiles:
+        strippedFile = file.rstrip(".xlsx")
+        if file.endswith(".xlsx") and "annotated" not in file:
+            rawResults.append(strippedFile)
+        elif "annotated" in file:
+            cldFiles.append(strippedFile)
+    """Now, starting a process in which I obtain only the raw results from
+    these additional Tukey post-hoc tests"""
+
+    # Obtaining a list of raw results from prior Tukey's tests, not these new
+    # Tukey's tests. I will then find the difference between this list
+    # and the list of all raw results
+    priorResults = []
+    for cldFile in cldFiles:
+        for rawFile in rawResults:
+            if rawFile in cldFile:
+                priorResults.append(rawFile)
+
+    # Obtaining the set of the results from the additional Tukey's post-hoc
+    # using a set operation
+    rawResults = set(rawResults)
+    priorResults = set(priorResults)
+    additionalResults = rawResults - priorResults  # Set operation in which
+    # you find the items that are only unique to the first set, rawResults,
+    # so files that are in rawResults but not in priorResults, which would
+    # be the newly created Tukey results files
+
+    # Creating and exporting a compact letter display of each additional
+    # results file
+    for file in additionalResults:
+        cldName = file + ", groups, annotated.xlsx"
+        resultsExcel = file + ".xlsx"
+        resultsPath = resultsFolder/resultsExcel
+        results = pd.read_excel(resultsPath, na_filter=False)
+        cldResults = cld.main(results)
+        cldPath = resultsFolder/cldName
+        if os.path.exists(cldPath) is False:
+            cldResults.to_excel(cldPath, index=False)
 # %%
 print(dt.now() - start)

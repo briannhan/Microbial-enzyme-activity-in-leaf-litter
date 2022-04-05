@@ -1,0 +1,2 @@
+group1,group2,meandiff,p-adj,lower,upper,reject,
+CSS,Grassland,-0.4386,0.001,-0.6894,-0.1877,True,
