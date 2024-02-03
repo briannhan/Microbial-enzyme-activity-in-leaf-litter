@@ -104,9 +104,39 @@ functionalGroupsOG = ["glycosidicBond", "C_O_stretching", "alkane", "lipid",
                       "carboEster", "amide", "carboEster1", "carboEster2",
                       "amide1", "amide2"]
 idVars = ["id", "Vegetation", "Precip", "timePoint"]
-functional = functional.melt(idVars, functionalGroupsOG, "functionalGroup")
+functional = functional.melt(idVars, functionalGroupsOG, "functionalGroup",
+                             "spectralArea")
 
 # Exporting the newly wrangled dataframe
 fileName = "Carbohydrates and Proteins FTIR.xlsx"
 filePath = litterChemFolderPath/fileName
-functional.to_excel(filePath, index=False)
+if os.path.exists(filePath) is False:
+    functional.to_excel(filePath, index=False)
+# %%
+# Modifying the data slightly to create a version to export to Ashish
+"""I will remove the summed up carboEster and amide columns and create a
+dataframe describing the spectral ranges"""
+
+functionalAshish = (functional.copy()
+                    .query("functionalGroup != ['amide', 'carboEster']")
+                    )
+
+functionalGroupsAshish = (functionalAshish.functionalGroup.drop_duplicates()
+                          .tolist()
+                          )
+spectralRangeDF = pd.DataFrame({"functionalGroup": functionalGroupsAshish})
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "glycosidicBond", "spectralRange"] = "1015-1080"
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "C_O_stretching", "spectralRange"] = "1160-1230"
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "alkane", "spectralRange"] = "1450-1475"
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "lipid", "spectralRange"] = "1700-1750"
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "carboEster1", "spectralRange"] = "970-1015"
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "carboEster2", "spectralRange"] = "1100-1160"
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "amide1", "spectralRange"] = "1620-1645"
+spectralRangeDF.loc[spectralRangeDF.functionalGroup == "amide2", "spectralRange"] = "1545-1600"
+
+# Exporting an Excel file for Ashish consisting of 2 dataframes
+ashishExport = litterChemFolderPath/"Litter chemistry FTIR.xlsx"
+if os.path.exists(ashishExport) is False:
+    with pd.ExcelWriter(ashishExport) as f:
+        functionalAshish.to_excel(f, "Data", index=False)
+        spectralRangeDF.to_excel(f, "Spectral ranges", index=False)
