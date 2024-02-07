@@ -33,10 +33,44 @@ VmaxDF = (pd.read_excel(VmaxPath, dtype=VmaxDtype)
 
 litterChemPath = litterChemFolder/"Litter chemistry FTIR.xlsx"
 litterChemDtype = {"id": "string", "Vegetation": "string", "Precip": "string",
-                   "timePoint": "string", "functionalGroup": "string"}
+                   "timePoint": "category", "functionalGroup": "string"}
 litterChemDF = (pd.read_excel(litterChemPath, 0, dtype=litterChemDtype)
                 .drop_duplicates()
                 )
+# %%
+# Let's convert time from a categorical variable to a numerical variable and
+# re-run mixed linear models, because the model results look ugly as shit
+# with time as a categorical variable
+
+"""Litter was sampled on August 30, 2017. Bags were deployed on September 12,
+2017.
+
+T0 sampled on November 30, 2017
+
+T3 sampled on April 11, 2018
+
+T5 sampled in November 2018, exact date unspecified.
+
+T6 sampled in February 2019, exact date unspecified.
+
+I'll convert the time to days since initial litter bag deployment on September
+12, 2017. For the last 2 time points, I'll just use the 15th of the month.
+"""
+# timeDict = {"timePoint": ["deployment", "0", "3", "5", "6"]}
+timeDict = {"year": [2017, 2017, 2018, 2018, 2019],
+            "month": [9, 11, 4, 11, 2],
+            "day": [12, 30, 11, 15, 15]}
+timeDF = pd.DataFrame(timeDict)
+timeSeries = pd.to_datetime(timeDF)
+timeDF = (pd.DataFrame({"timePoint": ["deployment", 0, 3, 5, 6],
+                        "date": timeSeries})
+          .astype({"timePoint": "category"})
+          )
+for index, row in timeDF.iterrows():
+    timeDF.loc[index, "daysSinceDeployment"] = row.date - timeDF.loc[0, "date"]
+timeDF.daysSinceDeployment = timeDF.daysSinceDeployment.dt.days
+VmaxDF = VmaxDF.merge(timeDF, on="timePoint")
+litterChemDF = litterChemDF.merge(timeDF, on="timePoint")
 # %%
 # Performing linear mixed effect models for alpha glucosidase, AG
 
@@ -49,23 +83,27 @@ Random effects: timePoint, plot ID (which is inherently a random factor)
 AG = VmaxDF.query("Enzyme == 'AG'")
 fullFormula = "Vmax ~ C(Vegetation)*C(Precip)"
 # AG.timePoint = AG.timePoint.astype("int64")
-randomFormula = "~0 + C(timePoint)"
-randomFormula2 = "~C(timePoint)"
-randomFormula3 = "~C(timePoint) - 1"
+randomFormula = "~0+daysSinceDeployment"
+randomFormula2 = "~daysSinceDeployment"
+randomFormula3 = "~daysSinceDeployment - 1"
 
 """Formulas 3 and 1 remove the intercept for timePoint and only estimated the
 slope for timePoint. Which, might not be that good of an idea"""
-AGmodel1 = mixedlm(fullFormula, AG, randomFormula, groups="ID")
-AGmodel1results = AGmodel1.fit(method=["lbfgs"])
-AGmodel1summary = AGmodel1results.summary()
+# AGmodel1 = mixedlm(fullFormula, AG, randomFormula, groups="ID")
+# AGmodel1results = AGmodel1.fit(method=["lbfgs"])
+# AGmodel1summary = AGmodel1results.summary()
 
 AGmodel2 = mixedlm(fullFormula, AG, randomFormula2, groups="ID")
 AGmodel2results = AGmodel2.fit(method=["lbfgs"])
 AGmodel2summary = AGmodel2results.summary()
 
-AGmodel3 = mixedlm(fullFormula, AG, randomFormula3, groups="ID")
-AGmodel3results = AGmodel3.fit(method=["lbfgs"])
-AGmodel3summary = AGmodel3results.summary()
+# AGmodel3 = mixedlm(fullFormula, AG, randomFormula3, groups="ID")
+# AGmodel3results = AGmodel3.fit(method=["lbfgs"])
+# AGmodel3summary = AGmodel3results.summary()
+
+"""Ever since changing time to a numerical variable instead of a categorical
+variable, running the 1st and 3rd models using the 1st and 3rd formulas
+rendered a 'Singular matrix' error. Commenting them out for now"""
 
 """Seems like grassland has a marginal significant effect on AG Vmax, judging
 from AGmodel2results. But that's not good enough. Let's check normality of
@@ -81,7 +119,10 @@ AGmodel4results = AGmodel4.fit(method=["lbfgs"])
 AGmodel4summary = AGmodel4results.summary()
 AGmodel4residuals = AGmodel4results.resid
 AGmodel4normality = stats.shapiro(AGmodel4residuals)
-"""Model residuals still not normal after log10 transformation"""
+AGmodel4randomCorrelation = -0.002/((0.635*0.196)**0.5)
+"""Model residuals still not normal after log10 transformation. In addition,
+there is extremely negligible correlation between the random effects.
+"""
 
 """Natural log transforming AG Vmax and then recreating model"""
 AGln = AG.copy()
@@ -113,6 +154,12 @@ AGmodel7residuals = AGmodel7results.resid
 AGmodel7normality = stats.shapiro(AGmodel7residuals)
 """Normality worsens by close to 1 order of magnitude by p-value"""
 
+"""Well despite the model with the log 10-transformed AG Vmax having
+uncorrelated random effects, and the correct next step would be to create a
+model in which the random effects are constrained to be uncorrelated, I don't
+know how to create such a model when the fixed effects are categorical
+variables."""
+
 """In summary, log transformations are best. Looking at results from the model
 created from log10 transformed Vmax, I see no effects by precipitation, no
 interaction effects, and a slightly significant effect by Vegetation that I'm
@@ -127,14 +174,21 @@ APmodel1 = mixedlm(fullFormula, AP, randomFormula2, groups="ID")
 APmodel1results = APmodel1.fit(method=["lbfgs"])
 APmodel1summary = APmodel1results.summary()
 """Hmm, what do you know, there are significant effects for vegetation and
-precipitation"""
+precipitation
+
+But once I converted time to a continuous variable, the significant effects
+disappeared
+"""
 
 """Checking model residuals to see if they're likely from a normal population
 """
 APmodel1residuals = APmodel1results.resid
 APmodel1normality = stats.shapiro(APmodel1residuals)
 """P-value of Shapiro-Wilk is 1.5*10^-14, very small, indicating it's unlikely
-that the residuals are from a normal population. Time to transform it."""
+that the residuals are from a normal population. Time to transform it.
+
+New p-value with time as continuous variable = 1.97*10^-15
+"""
 
 # Log10 transforming AP and running model again
 APlog10 = AP.copy()
@@ -144,7 +198,10 @@ APmodel2results = APmodel2.fit(method=["lbfgs"])
 APmodel2summary = APmodel2results.summary()
 APmodel2residuals = APmodel2results.resid
 APmodel2normality = stats.shapiro(APmodel2residuals)
-"""Still not quite normal, with Shapiro-Wilk normality p-value = 0.000394"""
+"""Still not quite normal, with Shapiro-Wilk normality p-value = 0.000394
+
+New p-value with time as continuous variable = 2.12*10^-8
+"""
 
 # Natural log transform and running model again
 APln = AP.copy()
@@ -155,7 +212,10 @@ APmodel3summary = APmodel3results.summary()
 APmodel3residuals = APmodel3results.resid
 APmodel3normality = stats.shapiro(APmodel3residuals)
 """Normality identical to log10 transformations. I'm not gonna do natural log
-transformations again in the future, then."""
+transformations again in the future, then.
+
+New p-value with time as continuous variable = 2.12*10^-8
+"""
 
 # Square root transform and running again
 APsquareRoot = AP.copy()
@@ -165,7 +225,10 @@ APmodel4results = APmodel4.fit(method=["lbfgs"])
 APmodel4summary = APmodel4results.summary()
 APmodel4residuals = APmodel4results.resid
 APmodel4normality = stats.shapiro(APmodel4residuals)
-"""Normality improves slightly but still worse than log transformations"""
+"""Normality improves slightly but still worse than log transformations
+
+New p-value with time as continuous variable = 1.57*10^-14
+"""
 
 # Reciprocal transform and running again
 APreciprocal = AP.copy()
@@ -176,7 +239,10 @@ APmodel5summary = APmodel5results.summary()
 APmodel5residuals = APmodel5results.resid
 APmodel5normality = stats.shapiro(APmodel5residuals)
 """Normality improves, p-value = 0.0002177, lower p-value than log
-transformations, so still slightly lower normality than log transformations"""
+transformations, so still slightly lower normality than log transformations
+
+New p-value with time as continuous variable = 0.6767. Let's keep this
+"""
 
 # Seeing what happens if I create a model with the log10 transformed data if
 # I remove the insignificant interaction
@@ -191,7 +257,14 @@ definitely are not significant"""
 
 """Let's just go with a log10 transformation with the interaction in the model.
 After a log10 transformation, the effects for vegetation and precipitation
-disappeared."""
+disappeared.
+
+After converting time to a continuous variable, the reciprocal transformation
+is the most normal. Very slight effect with precipitation (p = 0.058).
+Otherwise, results are still the same for vegetation and the interaction
+
+Might need to do Tukey post-hoc on AP later
+"""
 
 APsignificance = ["AP", None, None, None]
 # %%
@@ -267,7 +340,11 @@ BGmodel4summary, BGmodel4normality = mixedLinearModel(BG, "Vmax", "reciprocal")
 from square root transformation"""
 
 """From square root transformation, effects by vegetation and precipitation
-disappeared."""
+disappeared.
+
+From log 10 transformation, vegetation effect present, no effects from
+precipitation
+"""
 BGsignificance = ["BG", None, None, None]
 # %%
 # Creating mixed linear models for beta-xylosidase, BX
@@ -291,3 +368,13 @@ BXmodel4summary, BXmodel4normality = mixedLinearModel(BX, "Vmax", "reciprocal")
 No effects by either vegetation or precipitation, no interaction either"""
 BXsignificance = ["BX", None, None, None]
 # %%
+# Creating mixed linear models for cellobiohydrolase, CBH
+CBH = VmaxDF.query("Enzyme == 'CBH'")
+CBHmodel1summary, CBHmodel1normality = mixedLinearModel(CBH, "Vmax")
+"""Shapiro-Wilk p-value = 1.11*10^-6"""
+
+# Log 10 transforming CBH and re-testing
+CBHmodel2summary, CBHmodel2normality = mixedLinearModel(CBH, "Vmax", "log10")
+"""Shapiro-Wilk p-value = 0.6667, let's keep this transformation.
+Significant vegetation effect, significant precipitation effect,
+no interaction"""
