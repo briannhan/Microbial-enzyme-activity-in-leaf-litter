@@ -266,7 +266,7 @@ Otherwise, results are still the same for vegetation and the interaction
 Might need to do Tukey post-hoc on AP later
 """
 
-APsignificance = ["AP", None, None, None]
+APsignificance = ["AP", None, "-", None]
 # %%
 """Writing a function to abstract the process of creating linear mixed effect
 models, transforming the underlying data, and testing the normality of the
@@ -324,45 +324,69 @@ def mixedLinearModel(data, parameter, transformation=None,
 # Creating mixed linear models for beta-glucosidase, BG
 BG = VmaxDF.query("Enzyme == 'BG'")
 BGmodel1summary, BGmodel1normality = mixedLinearModel(BG, "Vmax")
+"""Shapiro-Wilk p-value after converting time = 4.527*10^-16"""
 
 # Log 10 transforming BG and re-testing
 BGmodel2summary, BGmodel2normality = mixedLinearModel(BG, "Vmax", "log10")
+"""Shapiro-Wilk p-value after converting time = 1.3198*10^-10"""
+
 
 # Square root transforming BG and re-testing
 BGmodel3summary, BGmodel3normality = mixedLinearModel(BG, "Vmax",
                                                       "square root")
 """Square root transformation has better normality than log10, although still
-not quite normal"""
+not quite normal
+
+After converting time, Shapiro-Wilk p-value = 6.1116*10^-15
+"""
 
 # Reciprocal transforming BG and re-testing
 BGmodel4summary, BGmodel4normality = mixedLinearModel(BG, "Vmax", "reciprocal")
 """Improves normality but worse than log10 and square root. Let's use results
-from square root transformation"""
+from square root transformation
+
+After converting time, Shapiro-Wilk p-value = 7.9298*10^-6, most normal
+transformation. Let's use this
+"""
 
 """From square root transformation, effects by vegetation and precipitation
 disappeared.
 
 From log 10 transformation, vegetation effect present, no effects from
 precipitation
+
+From reciprocal transformation after converting time, there is a significant
+vegetation effect, significant precipitation effect, and no significant
+interaction
 """
-BGsignificance = ["BG", None, None, None]
+BGsignificance = ["BG", "***", "*", None]
 # %%
 # Creating mixed linear models for beta-xylosidase, BX
 BX = VmaxDF.query("Enzyme == 'BX'")
 BXmodel1summary, BXmodel1normality = mixedLinearModel(BX, "Vmax")
+"""Convert time -> numerical, SW p-value = 3.829*10^-14"""
 
 # Log 10 transforming BX and re-testing
 BXmodel2summary, BXmodel2normality = mixedLinearModel(BX, "Vmax", "log10")
-"""Improves normality, but still far from normal"""
+"""Improves normality, but still far from normal
+
+Convert time -> numerical, SW p-value = 1.303*10^-05
+"""
 
 # Square root transforming BX and re-testing
 BXmodel3summary, BXmodel3normality = mixedLinearModel(BX, "Vmax",
                                                       "square root")
-"""Improves normality but worse than log10"""
+"""Improves normality but worse than log10
+
+Convert time -> numerical, SW p-value = 2.0909*10^-10
+"""
 
 # Reciprocal transforming BX and re-testing
 BXmodel4summary, BXmodel4normality = mixedLinearModel(BX, "Vmax", "reciprocal")
-"""Actually worsens normality"""
+"""Actually worsens normality
+
+Convert time -> numerical, SW p-value = 6.72*10^-13
+"""
 
 """Let's just use results from log 10 transformation.
 No effects by either vegetation or precipitation, no interaction either"""
@@ -371,10 +395,126 @@ BXsignificance = ["BX", None, None, None]
 # Creating mixed linear models for cellobiohydrolase, CBH
 CBH = VmaxDF.query("Enzyme == 'CBH'")
 CBHmodel1summary, CBHmodel1normality = mixedLinearModel(CBH, "Vmax")
-"""Shapiro-Wilk p-value = 1.11*10^-6"""
+"""Shapiro-Wilk p-value = 1.11*10^-6
+
+After converting time to numerical variable, Shapiro-Wilk p-value = 0.00020449
+"""
 
 # Log 10 transforming CBH and re-testing
 CBHmodel2summary, CBHmodel2normality = mixedLinearModel(CBH, "Vmax", "log10")
 """Shapiro-Wilk p-value = 0.6667, let's keep this transformation.
 Significant vegetation effect, significant precipitation effect,
-no interaction"""
+no interaction
+
+Shapiro-Wilk p-value after converting time to continuous variable = 0.495
+"""
+
+"""From log10 transformation, significant vegetation effect, marginally
+significant precipitation effect that warrants at least a Tukey. No significant
+interaction."""
+CBHsignificance = ["CBH", "***", "-", None]
+# %%
+# Creating mixed linear models for LAP
+LAP = VmaxDF.query("Enzyme == 'LAP'")
+LAPmodel1summary, LAPmodel1normality = mixedLinearModel(LAP, "Vmax")
+"""Shapiro-Wilk p = 4.503*10^-12"""
+
+# Log 10 transforming and re-testing
+LAPmodel2summary, LAPmodel2normality = mixedLinearModel(LAP, "Vmax", "log10")
+"""Shapiro-Wilk p = 6.254*10^-5"""
+
+# Square root transforming and re-testing
+LAPmodel3summary, LAPmodel3normality = mixedLinearModel(LAP, "Vmax",
+                                                        "square root")
+"""Shapiro-Wilk p = 1.81*10^-9"""
+
+# Reciprocal transforming and re-testing
+LAPmodel4summary, LAPmodel4normality = mixedLinearModel(LAP, "Vmax",
+                                                        "reciprocal")
+"""Shapiro-Wilk p = 0.000354, the most normal transformation. Let's use
+this"""
+
+"""From reciprocal transformation, significant vegetation effect, no
+precipitation effect, no interaction"""
+LAPsignificance = ["LAP", "**", None, None]
+# %%
+# Creating mixed linear models for NAG
+NAG = VmaxDF.query("Enzyme == 'NAG'")
+NAGmodel1summary, NAGmodel1normality = mixedLinearModel(NAG, "Vmax")
+"""Shapiro-Wilk normality p = 5.189*10^-7"""
+
+# Log 10 transforming and re-testing
+NAGmodel2summary, NAGmodel2normality = mixedLinearModel(NAG, "Vmax", "log10")
+"""Shapiro-Wilk p = 0.000451"""
+
+# Square root transforming and re-testing
+NAGmodel3summary, NAGmodel3normality = mixedLinearModel(NAG, "Vmax",
+                                                        "square root")
+"""Shapiro-Wilk normality p = 2.778*10^-6"""
+
+# Reciprocal transforming and re-testing
+NAGmodel4summary, NAGmodel4normality = mixedLinearModel(NAG, "Vmax",
+                                                        "reciprocal")
+"""Normality worsens, SW p = 1.0003*10^-9"""
+
+"""From log 10 transformation, significant Vegetation effect, no precipitation
+effect, no interaction"""
+NAGsignificance = ["NAG", "***", None, None]
+# %%
+"""Creating mixed linear models for PPO. This is gonna be more complicated
+because replicate measurements of PPO were taken for each plot and timepoint.
+
+Fixed effects: Vegetation, Precip, their interaction
+Groups: plot ID (top level group, with replicate as a nested group)
+Random effects: plot ID, Time (in days since deployment)
+Variance component: replicate
+"""
+PPO = VmaxDF.query("Enzyme == 'PPO'")
+PPO.loc[PPO.Replicate == 1, "Replicate"] = "a"
+PPO.loc[PPO.Replicate == 2, "Replicate"] = "b"
+PPO.loc[PPO.Replicate == 3, "Replicate"] = "c"
+PPO.loc[PPO.Replicate == 4, "Replicate"] = "d"
+PPO.Replicate = PPO.Replicate.astype("category")
+vc = {"Replicate": "C(Replicate)"}
+PPOmodel1 = mixedlm(fullFormula, PPO, randomFormula2, vc, groups="ID")
+PPOmodel1results = PPOmodel1.fit()
+PPOmodel1summary = PPOmodel1results.summary()
+PPOmodel1normality = stats.shapiro(PPOmodel1results.resid)
+"""Shapiro-Wilk p = 6.512*10^-24"""
+
+# Log 10 transforming and re-testing
+PPOlog10 = PPO.copy()
+PPOlog10.Vmax = np.log10(PPOlog10.Vmax)
+PPOmodel2 = mixedlm(fullFormula, PPOlog10, randomFormula2, vc, groups="ID")
+PPOmodel2results = PPOmodel2.fit()
+PPOmodel2summary = PPOmodel2results.summary()
+PPOmodel2normality = stats.shapiro(PPOmodel2results.resid)
+"""Shapiro-Wilk p = 3.54*10^-13"""
+
+# Reciprocal transforming and re-testing
+PPOreciprocal = PPO.copy()
+PPOreciprocal.Vmax = 1/PPOreciprocal.Vmax
+PPOmodel3 = mixedlm(fullFormula, PPOreciprocal, randomFormula2, vc,
+                    groups="ID")
+PPOmodel3results = PPOmodel3.fit()
+PPOmodel3summary = PPOmodel3results.summary()
+PPOmodel3normality = stats.shapiro(PPOmodel3results.resid)
+"""Shapiro-Wilk p = 4.514*10^-24"""
+
+# Square root transforming and re-testing
+PPOsquareRoot = PPO.copy()
+PPOsquareRoot.Vmax = (PPOsquareRoot.Vmax)**0.5
+PPOmodel4 = mixedlm(fullFormula, PPOsquareRoot, randomFormula2, vc,
+                    groups="ID")
+PPOmodel4results = PPOmodel4.fit()
+PPOmodel4summary = PPOmodel4results.summary()
+PPOmodel4normality = stats.shapiro(PPOmodel4results.resid)
+"""Shapiro-Wilk p = 7.981*10^-23"""
+
+"""From the log 10 transformation, no effect by vegetation or precipitation.
+Significant 2-way interaction."""
+PPOsignificance = ["PPO", None, None, "**"]
+
+"""So now all the enzymes have been tested. Moving onto the litter chemistry
+functional groups."""
+# %%
