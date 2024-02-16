@@ -32,10 +32,12 @@ VmaxDF = (pd.read_excel(VmaxPath, dtype=VmaxDtype)
           )
 
 litterChemPath = litterChemFolder/"Litter chemistry FTIR.xlsx"
-litterChemDtype = {"id": "string", "Vegetation": "string", "Precip": "string",
-                   "timePoint": "category", "functionalGroup": "string"}
+litterChemDtype = {"id": "category", "Vegetation": "category",
+                   "Precip": "category", "timePoint": "int64",
+                   "functionalGroup": "category"}
 litterChemDF = (pd.read_excel(litterChemPath, 0, dtype=litterChemDtype)
                 .drop_duplicates()
+                .astype({"timePoint": "category"})
                 )
 # %%
 # Let's convert time from a categorical variable to a numerical variable and
@@ -56,7 +58,6 @@ T6 sampled in February 2019, exact date unspecified.
 I'll convert the time to days since initial litter bag deployment on September
 12, 2017. For the last 2 time points, I'll just use the 15th of the month.
 """
-# timeDict = {"timePoint": ["deployment", "0", "3", "5", "6"]}
 timeDict = {"year": [2017, 2017, 2018, 2018, 2019],
             "month": [9, 11, 4, 11, 2],
             "day": [12, 30, 11, 15, 15]}
@@ -82,7 +83,6 @@ Random effects: timePoint, plot ID (which is inherently a random factor)
 """
 AG = VmaxDF.query("Enzyme == 'AG'")
 fullFormula = "Vmax ~ C(Vegetation)*C(Precip)"
-# AG.timePoint = AG.timePoint.astype("int64")
 randomFormula = "~0+daysSinceDeployment"
 randomFormula2 = "~daysSinceDeployment"
 randomFormula3 = "~daysSinceDeployment - 1"
@@ -164,8 +164,9 @@ variables."""
 created from log10 transformed Vmax, I see no effects by precipitation, no
 interaction effects, and a slightly significant effect by Vegetation that I'm
 going to ignore."""
-resultsDFcols = ["enzyme", "vegetation", "precipitation", "twoWay"]
-AGsignificance = ["AG", None, None, None]
+resultsDFcols = ["enzymeOrFunctionalGroup", "vegetation", "precipitation",
+                 "twoWay", "transformation"]
+AGsignificance = ["AG", None, None, None, "log10"]
 # %%
 # Creating linear mixed effect models for acid phosphatase, AP
 
@@ -266,7 +267,7 @@ Otherwise, results are still the same for vegetation and the interaction
 Might need to do Tukey post-hoc on AP later
 """
 
-APsignificance = ["AP", None, "-", None]
+APsignificance = ["AP", None, "-", None, "log10"]
 # %%
 """Writing a function to abstract the process of creating linear mixed effect
 models, transforming the underlying data, and testing the normality of the
@@ -301,6 +302,7 @@ def mixedLinearModel(data, parameter, transformation=None,
     -------
     - the summary generated from the results instance after fitting the model
     - the results object from the Shapiro-Wilk normality test
+    - the results object from the fitting of the model
     """
     if transformation == "log10":
         data = data.copy()
@@ -311,29 +313,33 @@ def mixedLinearModel(data, parameter, transformation=None,
     elif transformation == "reciprocal":
         data = data.copy()
         data[parameter] = 1/data[parameter]
+    
+    if parameter == "Vmax":
+        formula = "Vmax ~ C(Vegetation)*C(Precip)"
+    elif parameter == "spectralArea":
+        formula = "spectralArea ~ C(Vegetation)*C(Precip)"
 
     model = mixedlm(formula, data, randomFormula2, groups="ID")
     modelResults = model.fit(method=["lbfgs"])
     modelSummary = modelResults.summary()
     modelResiduals = modelResults.resid
     modelNormality = stats.shapiro(modelResiduals)
-    return modelSummary, modelNormality
+    return [modelResults, modelSummary, modelNormality]
 
 
 # %%
 # Creating mixed linear models for beta-glucosidase, BG
 BG = VmaxDF.query("Enzyme == 'BG'")
-BGmodel1summary, BGmodel1normality = mixedLinearModel(BG, "Vmax")
+BGmodel1 = mixedLinearModel(BG, "Vmax")
 """Shapiro-Wilk p-value after converting time = 4.527*10^-16"""
 
 # Log 10 transforming BG and re-testing
-BGmodel2summary, BGmodel2normality = mixedLinearModel(BG, "Vmax", "log10")
+BGmodel2 = mixedLinearModel(BG, "Vmax", "log10")
 """Shapiro-Wilk p-value after converting time = 1.3198*10^-10"""
 
 
 # Square root transforming BG and re-testing
-BGmodel3summary, BGmodel3normality = mixedLinearModel(BG, "Vmax",
-                                                      "square root")
+BGmodel3 = mixedLinearModel(BG, "Vmax", "square root")
 """Square root transformation has better normality than log10, although still
 not quite normal
 
@@ -341,7 +347,7 @@ After converting time, Shapiro-Wilk p-value = 6.1116*10^-15
 """
 
 # Reciprocal transforming BG and re-testing
-BGmodel4summary, BGmodel4normality = mixedLinearModel(BG, "Vmax", "reciprocal")
+BGmodel4 = mixedLinearModel(BG, "Vmax", "reciprocal")
 """Improves normality but worse than log10 and square root. Let's use results
 from square root transformation
 
@@ -359,30 +365,29 @@ From reciprocal transformation after converting time, there is a significant
 vegetation effect, significant precipitation effect, and no significant
 interaction
 """
-BGsignificance = ["BG", "***", "*", None]
+BGsignificance = ["BG", "***", "*", None, "reciprocal"]
 # %%
 # Creating mixed linear models for beta-xylosidase, BX
 BX = VmaxDF.query("Enzyme == 'BX'")
-BXmodel1summary, BXmodel1normality = mixedLinearModel(BX, "Vmax")
+BXmodel1 = mixedLinearModel(BX, "Vmax")
 """Convert time -> numerical, SW p-value = 3.829*10^-14"""
 
 # Log 10 transforming BX and re-testing
-BXmodel2summary, BXmodel2normality = mixedLinearModel(BX, "Vmax", "log10")
+BXmodel2 = mixedLinearModel(BX, "Vmax", "log10")
 """Improves normality, but still far from normal
 
 Convert time -> numerical, SW p-value = 1.303*10^-05
 """
 
 # Square root transforming BX and re-testing
-BXmodel3summary, BXmodel3normality = mixedLinearModel(BX, "Vmax",
-                                                      "square root")
+BXmodel3 = mixedLinearModel(BX, "Vmax", "square root")
 """Improves normality but worse than log10
 
 Convert time -> numerical, SW p-value = 2.0909*10^-10
 """
 
 # Reciprocal transforming BX and re-testing
-BXmodel4summary, BXmodel4normality = mixedLinearModel(BX, "Vmax", "reciprocal")
+BXmodel4 = mixedLinearModel(BX, "Vmax", "reciprocal")
 """Actually worsens normality
 
 Convert time -> numerical, SW p-value = 6.72*10^-13
@@ -390,18 +395,18 @@ Convert time -> numerical, SW p-value = 6.72*10^-13
 
 """Let's just use results from log 10 transformation.
 No effects by either vegetation or precipitation, no interaction either"""
-BXsignificance = ["BX", None, None, None]
+BXsignificance = ["BX", None, None, None, "log10"]
 # %%
 # Creating mixed linear models for cellobiohydrolase, CBH
 CBH = VmaxDF.query("Enzyme == 'CBH'")
-CBHmodel1summary, CBHmodel1normality = mixedLinearModel(CBH, "Vmax")
+CBHmodel1 = mixedLinearModel(CBH, "Vmax")
 """Shapiro-Wilk p-value = 1.11*10^-6
 
 After converting time to numerical variable, Shapiro-Wilk p-value = 0.00020449
 """
 
 # Log 10 transforming CBH and re-testing
-CBHmodel2summary, CBHmodel2normality = mixedLinearModel(CBH, "Vmax", "log10")
+CBHmodel2 = mixedLinearModel(CBH, "Vmax", "log10")
 """Shapiro-Wilk p-value = 0.6667, let's keep this transformation.
 Significant vegetation effect, significant precipitation effect,
 no interaction
@@ -412,54 +417,50 @@ Shapiro-Wilk p-value after converting time to continuous variable = 0.495
 """From log10 transformation, significant vegetation effect, marginally
 significant precipitation effect that warrants at least a Tukey. No significant
 interaction."""
-CBHsignificance = ["CBH", "***", "-", None]
+CBHsignificance = ["CBH", "***", "-", None, "log10"]
 # %%
 # Creating mixed linear models for LAP
 LAP = VmaxDF.query("Enzyme == 'LAP'")
-LAPmodel1summary, LAPmodel1normality = mixedLinearModel(LAP, "Vmax")
+LAPmodel1 = mixedLinearModel(LAP, "Vmax")
 """Shapiro-Wilk p = 4.503*10^-12"""
 
 # Log 10 transforming and re-testing
-LAPmodel2summary, LAPmodel2normality = mixedLinearModel(LAP, "Vmax", "log10")
+LAPmodel2 = mixedLinearModel(LAP, "Vmax", "log10")
 """Shapiro-Wilk p = 6.254*10^-5"""
 
 # Square root transforming and re-testing
-LAPmodel3summary, LAPmodel3normality = mixedLinearModel(LAP, "Vmax",
-                                                        "square root")
+LAPmodel3 = mixedLinearModel(LAP, "Vmax", "square root")
 """Shapiro-Wilk p = 1.81*10^-9"""
 
 # Reciprocal transforming and re-testing
-LAPmodel4summary, LAPmodel4normality = mixedLinearModel(LAP, "Vmax",
-                                                        "reciprocal")
+LAPmodel4 = mixedLinearModel(LAP, "Vmax", "reciprocal")
 """Shapiro-Wilk p = 0.000354, the most normal transformation. Let's use
 this"""
 
 """From reciprocal transformation, significant vegetation effect, no
 precipitation effect, no interaction"""
-LAPsignificance = ["LAP", "**", None, None]
+LAPsignificance = ["LAP", "**", None, None, "reciprocal"]
 # %%
 # Creating mixed linear models for NAG
 NAG = VmaxDF.query("Enzyme == 'NAG'")
-NAGmodel1summary, NAGmodel1normality = mixedLinearModel(NAG, "Vmax")
+NAGmodel1 = mixedLinearModel(NAG, "Vmax")
 """Shapiro-Wilk normality p = 5.189*10^-7"""
 
 # Log 10 transforming and re-testing
-NAGmodel2summary, NAGmodel2normality = mixedLinearModel(NAG, "Vmax", "log10")
+NAGmodel2 = mixedLinearModel(NAG, "Vmax", "log10")
 """Shapiro-Wilk p = 0.000451"""
 
 # Square root transforming and re-testing
-NAGmodel3summary, NAGmodel3normality = mixedLinearModel(NAG, "Vmax",
-                                                        "square root")
+NAGmodel3 = mixedLinearModel(NAG, "Vmax", "square root")
 """Shapiro-Wilk normality p = 2.778*10^-6"""
 
 # Reciprocal transforming and re-testing
-NAGmodel4summary, NAGmodel4normality = mixedLinearModel(NAG, "Vmax",
-                                                        "reciprocal")
+NAGmodel4 = mixedLinearModel(NAG, "Vmax", "reciprocal")
 """Normality worsens, SW p = 1.0003*10^-9"""
 
 """From log 10 transformation, significant Vegetation effect, no precipitation
 effect, no interaction"""
-NAGsignificance = ["NAG", "***", None, None]
+NAGsignificance = ["NAG", "***", None, None, "log10"]
 # %%
 """Creating mixed linear models for PPO. This is gonna be more complicated
 because replicate measurements of PPO were taken for each plot and timepoint.
@@ -513,8 +514,136 @@ PPOmodel4normality = stats.shapiro(PPOmodel4results.resid)
 
 """From the log 10 transformation, no effect by vegetation or precipitation.
 Significant 2-way interaction."""
-PPOsignificance = ["PPO", None, None, "**"]
+PPOsignificance = ["PPO", None, None, "**", "log10"]
 
 """So now all the enzymes have been tested. Moving onto the litter chemistry
 functional groups."""
 # %%
+# Wrangling the litter chemistry data prior to analysis
+
+splitted = litterChemDF.id.str.split("-", expand=True)
+splitted.columns = ["originalTimepoint", "originalPlot"]
+splitted["originalTimepoint"] = splitted["originalTimepoint"].str.lstrip("Tt")
+splitted = (splitted.astype({"originalTimepoint": "int64",
+                             "originalPlot": "category"})
+            )
+litterChemDF["originalTimepoint"] = splitted["originalTimepoint"]
+
+# Doing a sanity check to make sure that the time points between the original
+# plot IDs and the new time points match
+unmatchedTimepoints = litterChemDF.query("originalTimepoint != timePoint")
+"Empty dataframe, so the original and new time points match"
+
+litterChemDF = (litterChemDF.drop(columns="originalTimepoint")
+                .rename(columns={"id": "ID"})
+                )
+
+# Now the litter chemistry data is ready for analysis
+# %%
+# Creating linear mixed effect models for glycosidic bond spectral area
+
+# Creating dataframes of spectral area for each band assignment
+glycosidicBondDF = litterChemDF.query("functionalGroup == 'glycosidicBond'")
+C_O_stretchDF = litterChemDF.query("functionalGroup == 'C_O_stretching'")
+alkaneDF = litterChemDF.query("functionalGroup == 'alkane'")
+lipidDF = litterChemDF.query("functionalGroup == 'lipid'")
+carboEster1df = litterChemDF.query("functionalGroup == 'carboEster1'")
+carboEster2df = litterChemDF.query("functionalGroup == 'carboEster2'")
+amide1df = litterChemDF.query("functionalGroup == 'amide1'")
+amide2df = litterChemDF.query("functionalGroup == 'amide2'")
+
+# Starting the process of running models for glycosidic bond spectral area
+glycosidicBond1 = mixedLinearModel(glycosidicBondDF, "spectralArea")
+"""Shapiro-Wilk p = 5.738*10^-12"""
+
+# Log 10 transforming and then rerunning model
+glycosidicBond2 = mixedLinearModel(glycosidicBondDF, "spectralArea", "log10")
+"Shapiro-Wilk p = 3.06*10^-11"
+
+# Reciprocal transforming and rerunning
+glycosidicBond3 = mixedLinearModel(glycosidicBondDF, "spectralArea",
+                                   "reciprocal")
+"Shapiro-Wilk p = 2.269*10^-10"
+
+# Square root transforming and rerunning
+glycosidicBond4 = mixedLinearModel(glycosidicBondDF, "spectralArea",
+                                   "reciprocal")
+"""Shapiro-Wilk p = 2.269*10^-10. Virtually the same normality as with the
+reciprocal transformation. Let's compare the summaries of both.
+
+Reciprocal transformation shows significant vegetation and interaction, no
+main precipitation effects.
+
+Same thing with square root transformation. Let's keep the square root
+transformation for further analysis.
+"""
+glycosidicBondSignificance = ["glycosidicBond", "***", None, "*",
+                              "square root"]
+# %%
+# Creating models for C-O carbonyl stretches
+C_O_stretch1 = mixedLinearModel(C_O_stretchDF, "spectralArea")
+"Shapiro-Wilk p = 1.672*10^-9"
+
+# Log 10 transforming and rerunning
+C_O_stretch2 = mixedLinearModel(C_O_stretchDF, "spectralArea", "log10")
+"Shapiro-Wilk p = 3.863*10^-10"
+
+# Reciprocal transforming and rerunning
+C_O_stretch3 = mixedLinearModel(C_O_stretchDF, "spectralArea", "reciprocal")
+"Shapiro-Wilk p = 1.1595*10^-10"
+
+# Square root transforming and rerunning
+C_O_stretch4 = mixedLinearModel(C_O_stretchDF, "spectralArea", "square root")
+"""Shapiro-Wilk p = 7.937*10^-10
+
+Funnily enough, all the transformations worsen normality. Let's just go with
+the untransformed data then.
+
+Significant vegetation effect, no precipitation or interaction effect
+"""
+C_O_stretchSignificance = ["C_O_stretching", "***", None, None, None]
+# %%
+# Creating models for alkane band assignments, which really should be lignin
+alkane1 = mixedLinearModel(alkaneDF, "spectralArea")
+"Shapiro-Wilk p = 1.738*10^-11"
+
+# Log 10 transforming and rerunning
+alkane2 = mixedLinearModel(alkaneDF, "spectralArea", "log10")
+"Shapiro-Wilk p = 8.718*10^-10"
+
+# Reciprocal transforming and rerunning
+alkane3 = mixedLinearModel(alkaneDF, "spectralArea", "reciprocal")
+"Shapiro-Wilk p = 1.679*10^-9"
+
+# Square root transforming and rerunning
+alkane4 = mixedLinearModel(alkaneDF, "spectralArea", "square root")
+"Shapiro-Wilk p = 1.471*10^-10"
+
+"""Reciprocal transformation results in the model with the most normal
+residuals. From this transformation, we get a significant vegetation effect,
+an interaction with a p-value on the cusp of significant (p = 0.050)."""
+
+alkaneSignificance = ["alkane", "***", None, "*", "reciprocal"]
+# %%
+# Creating models for the lipid band assignment
+lipid1 = mixedLinearModel(lipidDF, "spectralArea")
+"Shapiro-Wilk p = 3.297*10^-9"
+
+# Log 10 transforming and rerunning
+lipid2 = mixedLinearModel(lipidDF, "spectralArea", "log10")
+"Shapiro-Wilk p = 8.6417*10^-10, normality worsened"
+
+# Reciprocal transforming and rerunning
+lipid3 = mixedLinearModel(lipidDF, "spectralArea", "reciprocal")
+"Shapiro-Wilk p = 2.355*10^-11"
+
+# Square root transforming and rerunning
+lipid4 = mixedLinearModel(lipidDF, "spectralArea", "square root")
+"Shapiro-Wilk p = 3.342*10^-9"
+
+"""All transformations worsened normality, so I'll just look at results from
+the untransformed data.
+
+Significant vegetation effect, no interaction or precipitation effect
+"""
+lipidSignificance = ["lipid", "***", None, None, None]
