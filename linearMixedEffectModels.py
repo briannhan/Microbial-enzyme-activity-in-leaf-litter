@@ -32,7 +32,7 @@ VmaxDF = (pd.read_excel(VmaxPath, dtype=VmaxDtype)
           )
 
 litterChemPath = litterChemFolder/"Litter chemistry FTIR.xlsx"
-litterChemDtype = {"id": "category", "Vegetation": "category",
+litterChemDtype = {"id": "string", "Vegetation": "category",
                    "Precip": "category", "timePoint": "int64",
                    "functionalGroup": "category"}
 litterChemDF = (pd.read_excel(litterChemPath, 0, dtype=litterChemDtype)
@@ -164,8 +164,8 @@ variables."""
 created from log10 transformed Vmax, I see no effects by precipitation, no
 interaction effects, and a slightly significant effect by Vegetation that I'm
 going to ignore."""
-resultsDFcols = ["enzymeOrFunctionalGroup", "vegetation", "precipitation",
-                 "twoWay", "transformation"]
+resultsDFcols = ["enzymeOrFunctionalGroup", "Vegetation", "Precip",
+                 "interaction", "transformation"]
 AGsignificance = ["AG", None, None, None, "log10"]
 # %%
 # Creating linear mixed effect models for acid phosphatase, AP
@@ -519,6 +519,187 @@ PPOsignificance = ["PPO", None, None, "**", "log10"]
 """So now all the enzymes have been tested. Moving onto the litter chemistry
 functional groups."""
 # %%
+"""Creating a dataframe of summary results for enzyme Vmax. This dataframe
+will be used to calculate effect sizes as well, using f2 as a measure of effect
+size for fixed effects (Lorah 2018), which is calculated using R2 of the full
+model and the R2 of the model without a specific fixed effect. R2 will be
+calculated according to Snijders and Bosker (1994), using the sum of squared
+residuals of the full model and the sum of squared residuals of a null model
+with only 1 intercept for the fixed effect and 1 intercept for the random
+effect (which will be the plot ID). When I fitted the null model to the enzyme
+Vmax data, the null model's intercept is always the mean of the dependent
+variable across all plots and time points. So I'll just be calculating the
+mean and using that to calculate the sum of squared residuals of the null
+model.
+
+
+Lorah, J. (2018). Effect size measures for multilevel models: definition,
+interpretation, and TIMSS example. Large-scale Assessments in Education, 6(8).
+https://doi.org/10.1186/s40536-018-0061-2
+
+Snijders, T. A. B., & Bosker, R. J. (1994) Modeled Variance in Two-Level
+Models. Sociological Methods & Research, 22(3), 342-363.
+https://doi.org/10.1177/0049124194022003004
+"""
+enzymeResultsLists = [AGsignificance, APsignificance, BGsignificance,
+                      BXsignificance, CBHsignificance, LAPsignificance,
+                      NAGsignificance, PPOsignificance]
+enzymeResults = (pd.DataFrame(enzymeResultsLists, columns=resultsDFcols)
+                 .astype(dtype={"Vegetation": "string", "Precip": "string",
+                                "interaction": "string"})
+                 )
+for column in enzymeResults.columns:
+    enzymeResults.loc[enzymeResults[column].isna(), column] = pd.NA
+independent = resultsDFcols[1:4]
+
+"""Calculating sum of squared residuals of the full model for each enzyme,
+and sum of squared residuals using the null model, which is just the mean of
+the dependent variable across all plots and time points."""
+enzymeModels = [AGmodel4results, APmodel2results, BGmodel4, BXmodel2,
+                CBHmodel2, LAPmodel4, NAGmodel2, PPOmodel2results]
+for index, row in enzymeResults.iterrows():
+    transformation = row["transformation"]
+    enzyme = row["enzymeOrFunctionalGroup"]
+    df = VmaxDF.query("Enzyme == @enzyme")
+    if transformation == "log10":
+        df["Vmax"] = np.log10(df["Vmax"])
+    elif transformation == "reciprocal":
+        df["Vmax"] = 1/df["Vmax"]
+    fullModel = enzymeModels[index]
+    if isinstance(fullModel, list):
+        fullModel = fullModel[0]
+    fullModelResiduals = fullModel.resid
+    fullModelSSR = np.sum(fullModelResiduals**2)
+    enzymeResults.loc[index, "fullModelSSR"] = fullModelSSR
+    nullModelSSR = (df["Vmax"].var())*(df.shape[0] - 1)
+    enzymeResults.loc[index, "nullModelSSR"] = nullModelSSR
+enzymeResults["fullModelR2"] = 1 - (enzymeResults.fullModelSSR/enzymeResults.nullModelSSR)
+
+"""Fitting models without the significant fixed effects to calculate R2 of
+models without significant effects. These R2 will later be used with the R2 of
+the full models to calculate f2 of the significant fixed effects"""
+modelsNoSignificantFixed = []
+for index, row in enzymeResults.iterrows():
+    transformation = row["transformation"]
+    enzyme = row["enzymeOrFunctionalGroup"]
+    df = VmaxDF.query("Enzyme == @enzyme")
+    if transformation == "log10":
+        df["Vmax"] = np.log10(df["Vmax"])
+    elif transformation == "reciprocal":
+        df["Vmax"] = 1/df["Vmax"]
+    # print(row.shape)
+    # Fitting the models without the significant fixed effects
+    modelFits = [enzyme]
+    if type(row["Vegetation"]) is str:
+        noVegFormula = "Vmax ~ C(Precip) + C(Vegetation):C(Precip)"
+        noVegModel = mixedlm(noVegFormula, df, randomFormula2, groups="ID")
+        noVegResults = noVegModel.fit(method=["lbfgs"])
+        noVegResiduals = noVegResults.resid
+        enzymeResults.loc[index, "noVegSSR"] = np.sum(noVegResiduals**2)
+        modelFits.append(noVegResults)
+    else:
+        modelFits.append(pd.NA)
+
+    if type(row["Precip"]) is str:
+        noPrecipFormula = "Vmax ~ C(Vegetation) + C(Vegetation):C(Precip)"
+        noPrecipModel = mixedlm(noPrecipFormula, df, randomFormula2,
+                                groups="ID")
+        noPrecipResults = noPrecipModel.fit(method=["lbfgs"])
+        noPrecipResiduals = noPrecipResults.resid
+        enzymeResults.loc[index, "noPrecipSSR"] = np.sum(noPrecipResiduals**2)
+        modelFits.append(noPrecipResults)
+    else:
+        modelFits.append(pd.NA)
+
+    if type(row["interaction"]) is str:
+        noInteractionFormula = "Vmax ~ C(Vegetation) + C(Precip)"
+        noInteractionModel = mixedlm(noInteractionFormula, df, randomFormula2,
+                                     groups="ID")
+        noInteractionResults = noInteractionModel.fit(method=["lbfgs"])
+        noInteractionResiduals = noInteractionResults.resid
+        enzymeResults.loc[index, "noInteractionSSR"] = np.sum(noInteractionResiduals**2)
+        modelFits.append(noInteractionResults)
+    else:
+        modelFits.append(pd.NA)
+    modelsNoSignificantFixed.append(modelFits)
+
+# Calculating R2 for models with significant fixed effects
+enzymeResults["noVegR2"] = 1 - (enzymeResults.noVegSSR/enzymeResults.nullModelSSR)
+enzymeResults["noPrecipR2"] = 1 - (enzymeResults.noPrecipSSR/enzymeResults.nullModelSSR)
+enzymeResults["noInteractionR2"] = 1 - (enzymeResults.noInteractionSSR/enzymeResults.nullModelSSR)
+
+# Calculating f2 effect sizes for significant fixed effects
+enzymeResults["vegf2"] = (enzymeResults.fullModelR2 - enzymeResults.noVegR2)/(1 - enzymeResults.fullModelR2)
+enzymeResults["precipf2"] = (enzymeResults.fullModelR2 - enzymeResults.noPrecipR2)/(1 - enzymeResults.fullModelR2)
+enzymeResults["interactionf2"] = (enzymeResults.fullModelR2 - enzymeResults.noInteractionR2)/(1 - enzymeResults.fullModelR2)
+"""These effect sizes are practically zero except for the interaction effect
+on PPO. What the fuck? You know what, these effect size calculations are
+worthless. Let's not put them into the paper or the paper's appendix.
+
+Instead, let's calculate Cohen's D for vegetation and precipitation if they're
+significant. I can't do anything with the significant interaction for PPO.
+"""
+
+
+def CohenD(series1, series2):
+    """
+    Calculates Cohen's D for 2 different groups. Intended to be used for
+    calculating effect sizes for significant vegetation and precipitation
+    effects but not significant interactions of these 2 independent variables.
+
+    Parameters
+    ----------
+    series1 : Pandas series
+        Dependent variable values of the first group.
+    series2 : Pandas series
+        Dependent variable values of the second group.
+
+    Returns
+    -------
+    Cohen's D representing an effect size of the difference between 2 groups.
+
+    """
+    mean1 = series1.mean()
+    var1 = series1.var()
+    size1 = series1.shape[0]
+
+    mean2 = series2.mean()
+    var2 = series2.var()
+    size2 = series2.shape[0]
+
+    pooledVar = (((size1 - 1)*var1) + ((size2 - 1)*var2))/(size1 + size2 - 2)
+    pooledSD = pooledVar**(1/2)
+    d = np.abs((mean1 - mean2)/pooledSD)
+    return d
+
+
+for index, row in enzymeResults.iterrows():
+    transformation = row["transformation"]
+    enzyme = row["enzymeOrFunctionalGroup"]
+    df = VmaxDF.query("Enzyme == @enzyme")
+    if transformation == "log10":
+        df.Vmax = np.log10(df.Vmax)
+    elif transformation == "reciprocal":
+        df.Vmax = 1/df.Vmax
+    if type(row["Vegetation"]) is str:
+        CSS = df.loc[df.Vegetation == "CSS", "Vmax"]
+        grassland = df.loc[df.Vegetation == "Grassland", "Vmax"]
+
+        enzymeResults.loc[index, "vegetationCohenD"] = CohenD(CSS, grassland)
+    if type(row["Precip"]) is str:
+        reduced = df.loc[df.Precip == "Reduced", "Vmax"]
+        ambient = df.loc[df.Precip == "Ambient", "Vmax"]
+
+        enzymeResults.loc[index, "precipCohenD"] = CohenD(reduced, ambient)
+
+"""For the other datasets, let's also calculate Cohen's D for precipitation
+and vegetation instead of calculating f2, and let's not calculate Cohen's D
+for significant interactions. This is because Cohen's D can only be calculated
+for binary categorical variables, and the interactions are 4 categories."""
+finalEnzymeResultsCols = ["enzymeOrFunctionalGroup", "transformation",
+                          "vegetationCohenD", "precipCohenD", "interaction"]
+enzymeResults = enzymeResults[finalEnzymeResultsCols]
+# %%
 # Wrangling the litter chemistry data prior to analysis
 
 splitted = litterChemDF.id.str.split("-", expand=True)
@@ -528,6 +709,7 @@ splitted = (splitted.astype({"originalTimepoint": "int64",
                              "originalPlot": "category"})
             )
 litterChemDF["originalTimepoint"] = splitted["originalTimepoint"]
+litterChemDF["ID"] = splitted["originalPlot"]
 
 # Doing a sanity check to make sure that the time points between the original
 # plot IDs and the new time points match
@@ -535,7 +717,7 @@ unmatchedTimepoints = litterChemDF.query("originalTimepoint != timePoint")
 "Empty dataframe, so the original and new time points match"
 
 litterChemDF = (litterChemDF.drop(columns="originalTimepoint")
-                .rename(columns={"id": "ID"})
+                .rename(columns={"id": "plotTimepoint"})
                 )
 
 # Now the litter chemistry data is ready for analysis
@@ -554,96 +736,48 @@ amide2df = litterChemDF.query("functionalGroup == 'amide2'")
 
 # Starting the process of running models for glycosidic bond spectral area
 glycosidicBond1 = mixedLinearModel(glycosidicBondDF, "spectralArea")
-"""Shapiro-Wilk p = 5.738*10^-12"""
+"""Shapiro-Wilk p = 0.50877, it's normal, so let's just use the untransformed
+data."""
 
-# Log 10 transforming and then rerunning model
-glycosidicBond2 = mixedLinearModel(glycosidicBondDF, "spectralArea", "log10")
-"Shapiro-Wilk p = 3.06*10^-11"
 
-# Reciprocal transforming and rerunning
-glycosidicBond3 = mixedLinearModel(glycosidicBondDF, "spectralArea",
-                                   "reciprocal")
-"Shapiro-Wilk p = 2.269*10^-10"
-
-# Square root transforming and rerunning
-glycosidicBond4 = mixedLinearModel(glycosidicBondDF, "spectralArea",
-                                   "reciprocal")
-"""Shapiro-Wilk p = 2.269*10^-10. Virtually the same normality as with the
-reciprocal transformation. Let's compare the summaries of both.
-
-Reciprocal transformation shows significant vegetation and interaction, no
-main precipitation effects.
-
-Same thing with square root transformation. Let's keep the square root
-transformation for further analysis.
 """
-glycosidicBondSignificance = ["glycosidicBond", "***", None, "*",
-                              "square root"]
+Significant vegetation and interaction, no main precipitation effects.
+"""
+glycosidicBondSignificance = ["glycosidicBond", "***", None, "*", None]
 # %%
 # Creating models for C-O carbonyl stretches
 C_O_stretch1 = mixedLinearModel(C_O_stretchDF, "spectralArea")
-"Shapiro-Wilk p = 1.672*10^-9"
+"Shapiro-Wilk p = 0.425"
 
-# Log 10 transforming and rerunning
-C_O_stretch2 = mixedLinearModel(C_O_stretchDF, "spectralArea", "log10")
-"Shapiro-Wilk p = 3.863*10^-10"
 
-# Reciprocal transforming and rerunning
-C_O_stretch3 = mixedLinearModel(C_O_stretchDF, "spectralArea", "reciprocal")
-"Shapiro-Wilk p = 1.1595*10^-10"
-
-# Square root transforming and rerunning
-C_O_stretch4 = mixedLinearModel(C_O_stretchDF, "spectralArea", "square root")
-"""Shapiro-Wilk p = 7.937*10^-10
-
-Funnily enough, all the transformations worsen normality. Let's just go with
-the untransformed data then.
-
+"""
 Significant vegetation effect, no precipitation or interaction effect
 """
 C_O_stretchSignificance = ["C_O_stretching", "***", None, None, None]
 # %%
 # Creating models for alkane band assignments, which really should be lignin
 alkane1 = mixedLinearModel(alkaneDF, "spectralArea")
-"Shapiro-Wilk p = 1.738*10^-11"
+"Shapiro-Wilk p = 0.00012165"
 
 # Log 10 transforming and rerunning
 alkane2 = mixedLinearModel(alkaneDF, "spectralArea", "log10")
-"Shapiro-Wilk p = 8.718*10^-10"
+"Shapiro-Wilk p = 0.0458"
 
 # Reciprocal transforming and rerunning
 alkane3 = mixedLinearModel(alkaneDF, "spectralArea", "reciprocal")
-"Shapiro-Wilk p = 1.679*10^-9"
-
-# Square root transforming and rerunning
-alkane4 = mixedLinearModel(alkaneDF, "spectralArea", "square root")
-"Shapiro-Wilk p = 1.471*10^-10"
+"Shapiro-Wilk p = 0.490"
 
 """Reciprocal transformation results in the model with the most normal
 residuals. From this transformation, we get a significant vegetation effect,
-an interaction with a p-value on the cusp of significant (p = 0.050)."""
+and no main precipitation effect or interaction"""
 
-alkaneSignificance = ["alkane", "***", None, "*", "reciprocal"]
+alkaneSignificance = ["alkane", "*", None, None, "reciprocal"]
 # %%
 # Creating models for the lipid band assignment
 lipid1 = mixedLinearModel(lipidDF, "spectralArea")
-"Shapiro-Wilk p = 3.297*10^-9"
+"Shapiro-Wilk p = 0.307"
 
-# Log 10 transforming and rerunning
-lipid2 = mixedLinearModel(lipidDF, "spectralArea", "log10")
-"Shapiro-Wilk p = 8.6417*10^-10, normality worsened"
-
-# Reciprocal transforming and rerunning
-lipid3 = mixedLinearModel(lipidDF, "spectralArea", "reciprocal")
-"Shapiro-Wilk p = 2.355*10^-11"
-
-# Square root transforming and rerunning
-lipid4 = mixedLinearModel(lipidDF, "spectralArea", "square root")
-"Shapiro-Wilk p = 3.342*10^-9"
-
-"""All transformations worsened normality, so I'll just look at results from
-the untransformed data.
-
+"""
 Significant vegetation effect, no interaction or precipitation effect
 """
 lipidSignificance = ["lipid", "***", None, None, None]
