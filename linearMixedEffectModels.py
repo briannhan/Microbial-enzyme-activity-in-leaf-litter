@@ -164,7 +164,7 @@ variables."""
 created from log10 transformed Vmax, I see no effects by precipitation, no
 interaction effects, and a slightly significant effect by Vegetation that I'm
 going to ignore."""
-resultsDFcols = ["enzymeOrFunctionalGroup", "Vegetation", "Precip",
+resultsDFcols = ["dependent", "Vegetation", "Precip",
                  "interaction", "transformation"]
 AGsignificance = ["AG", None, None, None, "log10"]
 # %%
@@ -559,7 +559,7 @@ enzymeModels = [AGmodel4results, APmodel2results, BGmodel4, BXmodel2,
                 CBHmodel2, LAPmodel4, NAGmodel2, PPOmodel2results]
 for index, row in enzymeResults.iterrows():
     transformation = row["transformation"]
-    enzyme = row["enzymeOrFunctionalGroup"]
+    enzyme = row["dependent"]
     df = VmaxDF.query("Enzyme == @enzyme")
     if transformation == "log10":
         df["Vmax"] = np.log10(df["Vmax"])
@@ -581,7 +581,7 @@ the full models to calculate f2 of the significant fixed effects"""
 modelsNoSignificantFixed = []
 for index, row in enzymeResults.iterrows():
     transformation = row["transformation"]
-    enzyme = row["enzymeOrFunctionalGroup"]
+    enzyme = row["dependent"]
     df = VmaxDF.query("Enzyme == @enzyme")
     if transformation == "log10":
         df["Vmax"] = np.log10(df["Vmax"])
@@ -675,7 +675,7 @@ def CohenD(series1, series2):
 
 for index, row in enzymeResults.iterrows():
     transformation = row["transformation"]
-    enzyme = row["enzymeOrFunctionalGroup"]
+    enzyme = row["dependent"]
     df = VmaxDF.query("Enzyme == @enzyme")
     if transformation == "log10":
         df.Vmax = np.log10(df.Vmax)
@@ -696,9 +696,9 @@ for index, row in enzymeResults.iterrows():
 and vegetation instead of calculating f2, and let's not calculate Cohen's D
 for significant interactions. This is because Cohen's D can only be calculated
 for binary categorical variables, and the interactions are 4 categories."""
-finalEnzymeResultsCols = ["enzymeOrFunctionalGroup", "transformation",
+finalEnzymeResultsCols = ["dependent", "transformation",
                           "vegetationCohenD", "precipCohenD", "interaction"]
-enzymeResults = enzymeResults[finalEnzymeResultsCols]
+# enzymeResults = enzymeResults[finalEnzymeResultsCols]
 # %%
 # Wrangling the litter chemistry data prior to analysis
 
@@ -781,3 +781,80 @@ lipid1 = mixedLinearModel(lipidDF, "spectralArea")
 Significant vegetation effect, no interaction or precipitation effect
 """
 lipidSignificance = ["lipid", "***", None, None, None]
+# %%
+# Creating models for carboEster1 band assignment
+carboEster1model1 = mixedLinearModel(carboEster1df, "spectralArea")
+"Shapiro-Wilk p = 0.0141"
+
+# Log 10 transforming and rerunning model
+carboEster1model2 = mixedLinearModel(carboEster1df, "spectralArea", "log10")
+"Shapiro-Wilk p = 0.0170"
+
+# Reciprocal transforming and rerunning
+carboEster1model3 = mixedLinearModel(carboEster1df, "spectralArea",
+                                     "reciprocal")
+"Shapiro-Wilk p = 0.0942, let's use this"
+
+"""From the reciprocal transformation, there is a significant vegetation
+effect but no main precipitation effect or interaction"""
+carboEster1significance = ["carboEster1", "***", None, None, "reciprocal"]
+# %%
+# Creating models for carboEster2 band assignment
+carboEster2model1 = mixedLinearModel(carboEster2df, "spectralArea")
+"Shapiro-Wilk p = 0.591, no need for transformation"
+
+"""Significant vegetation effect, significant interaction"""
+carboEster2significance = ["carboEster2", "***", None, "*", None]
+# %%
+# Creating models for the amide1 band assignment
+amide1model1 = mixedLinearModel(amide1df, "spectralArea")
+"Shapiro-Wilk p = 0.0963"
+
+"""No significance at all"""
+amide1significance = ["amide1", None, None, None, None]
+# %%
+# Creating models for the amide2 band assignment
+amide2model1 = mixedLinearModel(amide2df, "spectralArea")
+"Shapiro-Wilk p = 0.0908"
+
+"""Significant vegetation effect, slightly significant precipitation effect,
+slightly significant interaction."""
+amide2significance = ["amide2", "*", "-", "-", None]
+# %%
+# Calculating effect sizes for litter chemistry functional groups
+litterChemSignificance = [glycosidicBondSignificance, C_O_stretchSignificance,
+                          alkaneSignificance, lipidSignificance,
+                          carboEster1significance, carboEster2significance,
+                          amide1significance, amide2significance]
+litterChemResults = (pd.DataFrame(litterChemSignificance,
+                                  columns=resultsDFcols)
+                     .astype({"Vegetation": "string", "Precip": "string",
+                              "interaction": "string"})
+                     )
+for column in litterChemResults.columns:
+    litterChemResults.loc[litterChemResults[column].isna(), column] = pd.NA
+
+for i, row in litterChemResults.iterrows():
+    transformation = row["transformation"]
+    functionalGroup = row["dependent"]
+    df = litterChemDF.query("functionalGroup == @functionalGroup")
+    if type(transformation) is str:
+        if transformation == "log10":
+            df["spectralArea"] = np.log10(df["spectralArea"])
+        elif transformation == "reciprocal":
+            df["spectralArea"] = 1/df["spectralArea"]
+        elif transformation == "square root":
+            df["spectralArea"] = df["spectralArea"]**(1/2)
+
+    if type(row["Vegetation"]) is str:
+        CSS = df.loc[df.Vegetation == 'CSS', "spectralArea"]
+        Grassland = df.loc[df.Vegetation == 'Grassland', "spectralArea"]
+        litterChemResults.loc[i, "vegetationCohenD"] = CohenD(CSS, Grassland)
+
+    if type(row["Precip"]) is str:
+        reduced = df.loc[df.Precip == 'Reduced', "spectralArea"]
+        ambient = df.loc[df.Precip == 'Ambient', "spectralArea"]
+        litterChemResults.loc[i, "precipCohenD"] = CohenD(reduced, ambient)
+litterChemResults = litterChemResults[["dependent", "transformation",
+                                       "vegetationCohenD", "precipCohenD",
+                                       "interaction"]]
