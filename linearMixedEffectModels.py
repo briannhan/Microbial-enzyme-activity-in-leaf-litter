@@ -313,11 +313,8 @@ def mixedLinearModel(data, parameter, transformation=None,
     elif transformation == "reciprocal":
         data = data.copy()
         data[parameter] = 1/data[parameter]
-    
-    if parameter == "Vmax":
-        formula = "Vmax ~ C(Vegetation)*C(Precip)"
-    elif parameter == "spectralArea":
-        formula = "spectralArea ~ C(Vegetation)*C(Precip)"
+
+    formula = "{} ~ C(Vegetation)*C(Precip)".format(parameter)
 
     model = mixedlm(formula, data, randomFormula2, groups="ID")
     modelResults = model.fit(method=["lbfgs"])
@@ -673,32 +670,75 @@ def CohenD(series1, series2):
     return d
 
 
-for index, row in enzymeResults.iterrows():
-    transformation = row["transformation"]
-    enzyme = row["dependent"]
-    df = VmaxDF.query("Enzyme == @enzyme")
-    if transformation == "log10":
-        df.Vmax = np.log10(df.Vmax)
-    elif transformation == "reciprocal":
-        df.Vmax = 1/df.Vmax
-    if type(row["Vegetation"]) is str:
-        CSS = df.loc[df.Vegetation == "CSS", "Vmax"]
-        grassland = df.loc[df.Vegetation == "Grassland", "Vmax"]
+dependentVarDict = {"Enzyme": "Vmax", "functionalGroup": "spectralArea"}
 
-        enzymeResults.loc[index, "vegetationCohenD"] = CohenD(CSS, grassland)
-    if type(row["Precip"]) is str:
-        reduced = df.loc[df.Precip == "Reduced", "Vmax"]
-        ambient = df.loc[df.Precip == "Ambient", "Vmax"]
 
-        enzymeResults.loc[index, "precipCohenD"] = CohenD(reduced, ambient)
+def mainEffectsCohenD(significanceLists, data, dataset):
+    """
+    Abstracts the calculation of Cohen's D for the main effects of each
+    dataset, so that 
 
+    Parameters
+    ----------
+    significanceLists : List of lists
+        Each list within the overall list contains the linear mixed effect
+        model testing results of the independent variables and their
+        interaction. All the lists describe dependent variables within a
+        specific dataset (e.g. Vmax for all enzymes, spectral area for specific
+        functional groups, etc).
+    data : Pandas dataframe
+        A specific dataset.
+    dataset : string
+        Conceptually, this string describes the dataset that is the 'data'
+        dataframe. More specifically, this describes the specific column within
+        the dataset that will be filtered for. For now, the valid values are
+        "Enzyme" and "functionalGroup".
+
+    Returns
+    -------
+    A Pandas dataframe containing Cohen's D for the main effects.
+
+    """
+    dependentVarCol = dependentVarDict[dataset]
+
+    for i in range(len(significanceLists)):
+        sublist = significanceLists[i]
+        dependent = sublist[0]
+        transformation = sublist[-1]
+        queryString = "{} == @dependent".format(dataset)
+        df = data.query(queryString)
+        if transformation == "log10":
+            df[dependentVarCol] = np.log10(df[dependentVarCol])
+        elif transformation == "reciprocal":
+            df[dependentVarCol] = 1/df[dependentVarCol]
+
+        if isinstance(sublist[1], str):
+            CSS = df.loc[df.Vegetation == "CSS", dependentVarCol]
+            grassland = df.loc[df.Vegetation == "Grassland", dependentVarCol]
+
+            significanceLists[i][1] = CohenD(CSS, grassland)
+        if isinstance(sublist[2], str):
+            reduced = df.loc[df.Precip == "Reduced", dependentVarCol]
+            ambient = df.loc[df.Precip == "Ambient", dependentVarCol]
+
+            significanceLists[i][2] = CohenD(reduced, ambient)
+    results = (pd.DataFrame(significanceLists, columns=resultsDFcols)
+               .astype({"interaction": "string", "Vegetation": "float64",
+                        "Precip": "float64"})
+               )
+    results.loc[results.Vegetation.isna(), "Vegetation"] = pd.NA
+    results.loc[results.Precip.isna(), "Precip"] = pd.NA
+    results.loc[results.interaction.isna(), "interaction"] = pd.NA
+    results = results[["dependent", "transformation", "Vegetation", "Precip",
+                       "interaction"]]
+    return results
+
+
+enzymeResults = mainEffectsCohenD(enzymeResultsLists, VmaxDF, "Enzyme")
 """For the other datasets, let's also calculate Cohen's D for precipitation
 and vegetation instead of calculating f2, and let's not calculate Cohen's D
 for significant interactions. This is because Cohen's D can only be calculated
 for binary categorical variables, and the interactions are 4 categories."""
-finalEnzymeResultsCols = ["dependent", "transformation",
-                          "vegetationCohenD", "precipCohenD", "interaction"]
-# enzymeResults = enzymeResults[finalEnzymeResultsCols]
 # %%
 # Wrangling the litter chemistry data prior to analysis
 
@@ -826,35 +866,31 @@ litterChemSignificance = [glycosidicBondSignificance, C_O_stretchSignificance,
                           alkaneSignificance, lipidSignificance,
                           carboEster1significance, carboEster2significance,
                           amide1significance, amide2significance]
-litterChemResults = (pd.DataFrame(litterChemSignificance,
-                                  columns=resultsDFcols)
-                     .astype({"Vegetation": "string", "Precip": "string",
-                              "interaction": "string"})
-                     )
-for column in litterChemResults.columns:
-    litterChemResults.loc[litterChemResults[column].isna(), column] = pd.NA
-
-for i, row in litterChemResults.iterrows():
-    transformation = row["transformation"]
-    functionalGroup = row["dependent"]
-    df = litterChemDF.query("functionalGroup == @functionalGroup")
-    if type(transformation) is str:
-        if transformation == "log10":
-            df["spectralArea"] = np.log10(df["spectralArea"])
-        elif transformation == "reciprocal":
-            df["spectralArea"] = 1/df["spectralArea"]
-        elif transformation == "square root":
-            df["spectralArea"] = df["spectralArea"]**(1/2)
-
-    if type(row["Vegetation"]) is str:
-        CSS = df.loc[df.Vegetation == 'CSS', "spectralArea"]
-        Grassland = df.loc[df.Vegetation == 'Grassland', "spectralArea"]
-        litterChemResults.loc[i, "vegetationCohenD"] = CohenD(CSS, Grassland)
-
-    if type(row["Precip"]) is str:
-        reduced = df.loc[df.Precip == 'Reduced', "spectralArea"]
-        ambient = df.loc[df.Precip == 'Ambient', "spectralArea"]
-        litterChemResults.loc[i, "precipCohenD"] = CohenD(reduced, ambient)
-litterChemResults = litterChemResults[["dependent", "transformation",
-                                       "vegetationCohenD", "precipCohenD",
-                                       "interaction"]]
+litterChemResults = mainEffectsCohenD(litterChemSignificance, litterChemDF,
+                                      "functionalGroup")
+# %%
+# Exporting the linear mixed model effect results
+mixedModelEffectsName = "Linear mixed models, Cohen's D for main effects.xlsx"
+note = ["The Vmax and FTIR data were previously analyzed using 3-way ANOVAs",
+        "followed by a Tukey post-hoc. This time, they were re-analyzed using",
+        "linear mixed effect models with time and plot as random effects and",
+        "precipitation, vegetation, and their interaction as fixed effects.",
+        "In addition, the residuals of the linear mixed effect models were",
+        "tested for normality by applying the SHapiro-Wilk test on a model's",
+        "residuals, while for the ANOVA analysis, the residuals were not",
+        "tested for normality, and all the Vmax were log10 transformed.",
+        "Another difference is that effect sizes for main effects were",
+        "calculated only after performing a linear mixed effect model and",
+        "before running any Tukey post-hoc while previously, they were only",
+        "calculated after running Tukey post-hoc. A final difference is that",
+        "Effect sizes this time were calculated at a significance level of",
+        "alpha = 0.10. Tukey's post-hoc should be stricter, I'll drop the",
+        "significance level down to 0.05 later."]
+readMe = pd.DataFrame({"Note": note})
+statsFolder = repository/"Statistical analyses"
+resultsPath = statsFolder/mixedModelEffectsName
+if os.path.exists(resultsPath) is False:
+    with pd.ExcelWriter(resultsPath) as w:
+        readMe.to_excel(w, "ReadMe", index=False)
+        enzymeResults.to_excel(w, "Vmax", index=False)
+        litterChemResults.to_excel(w, "litterChem", index=False)
