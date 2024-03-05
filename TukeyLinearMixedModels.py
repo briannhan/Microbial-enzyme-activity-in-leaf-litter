@@ -58,15 +58,19 @@ litterChem = (pd.read_excel(litterChemPath, "Data")
               .rename(columns={"functionalGroup": "dependent",
                                "spectralArea": "data"})
               )
+litterChem["parameter"] = litterChem["dependent"]
 Vmax = (pd.read_excel(VmaxPath, dtype={"timePoint": "string"})
         .rename(columns={"Enzyme": "dependent", "Vmax": "data"})
         )
+Vmax["parameter"] = "Vmax"
 VmaxPartialEta2cols = {"Enzyme": "dependent", "Precipitation": "Precip",
                        "Vegetation x Precipitation": "interaction"}
 VmaxPartialEta2 = (pd.read_excel(partialEta2path, "Vmax",
                                  usecols=[0, 1, 2, 3, 6])
                    .rename(columns=VmaxPartialEta2cols)
                    )
+VmaxPartialEta2["transformation"] = "log10"
+VmaxPartialEta2["parameter"] = "Vmax"
 litterChemPartialEta2cols = {"functionalGroup": "dependent",
                              "Precipitation": "Precip",
                              "Vegetation x Precipitation": "interaction"}
@@ -75,19 +79,23 @@ litterChemPartialEta2 = (pd.read_excel(partialEta2path, "litterChemistry",
                          .rename(columns=litterChemPartialEta2cols)
                          .query("dependent != ['carboEster', 'amide']")
                          )
+litterChemPartialEta2["transformation"] = None
+litterChemPartialEta2["parameter"] = litterChemPartialEta2["dependent"]
 VmaxLme = pd.read_excel(lmePath, "Vmax")
+VmaxLme["parameter"] = "Vmax"
 litterChemLme = pd.read_excel(lmePath, "litterChem")
 litterChemLme.loc[litterChemLme.transformation.isna(), "transformation"] = None
-independentVars = VmaxLme.columns.tolist()[2:]
-mergeCols = VmaxLme.columns.tolist()[2:]
+litterChemLme["parameter"] = litterChemLme["dependent"]
+independentVars = VmaxLme.columns.tolist()[2:-1]
+mergeCols = VmaxLme.columns.tolist()[1:]
 mergeCols.append("dependent")
 
 # Filtering out the insignificant dependent variables from the partial eta^2
 # and linear mixed effect model dataframes
-VmaxPartialEta2 = VmaxPartialEta2.loc[VmaxPartialEta2.Vegetation.notna() | VmaxPartialEta2.Precip.notna() | VmaxPartialEta2.interaction.notna()]
-litterChemPartialEta2 = litterChemPartialEta2.loc[litterChemPartialEta2.Vegetation.notna() | litterChemPartialEta2.Precip.notna() | litterChemPartialEta2.interaction.notna()]
-VmaxLme = VmaxLme.loc[VmaxLme.Vegetation.notna() | VmaxLme.Precip.notna() | VmaxLme.interaction.notna()]
-litterChemLme = litterChemLme.loc[litterChemLme.Vegetation.notna() | litterChemLme.Precip.notna() | litterChemLme.interaction.notna()]
+# VmaxPartialEta2 = VmaxPartialEta2.loc[VmaxPartialEta2.Vegetation.notna() | VmaxPartialEta2.Precip.notna() | VmaxPartialEta2.interaction.notna()]
+# litterChemPartialEta2 = litterChemPartialEta2.loc[litterChemPartialEta2.Vegetation.notna() | litterChemPartialEta2.Precip.notna() | litterChemPartialEta2.interaction.notna()]
+# VmaxLme = VmaxLme.loc[VmaxLme.Vegetation.notna() | VmaxLme.Precip.notna() | VmaxLme.interaction.notna()]
+# litterChemLme = litterChemLme.loc[litterChemLme.Vegetation.notna() | litterChemLme.Precip.notna() | litterChemLme.interaction.notna()]
 # %%
 """Performing Tukey's post-hoc.
 
@@ -108,7 +116,7 @@ a significant effect
 # Writing a function to perform the Tukey's
 
 
-def Tukey(data, partialEta2, lme, defaultTransformation=None):
+def Tukey(data, partialEta2, lme):
     """
     Performs Tukey's post-hoc following linear mixed effect model results using
     the conditions above. This function performs Tukey's post-hoc on all
@@ -127,30 +135,69 @@ def Tukey(data, partialEta2, lme, defaultTransformation=None):
     lme : Pandas dataframe
         Linear mixed effect model results, with Cohen's D for significant
         main effects, of the dataset.
-    defaultTransformation : str, optional
-        The original transformation put onto the data for the initial
-        ANOVA + Tukey's analysis. The default is None.
 
     Returns
     -------
-    None. Exports Tukey's results if they are performed.
+    A dataframe of dependent variables and independent variables that have
+    underwent Tukey's post-hoc.
+
+    Exports Tukey's results if they are performed.
 
     """
     partialEta2copy = partialEta2.copy()
     lmeCopy = lme.copy()
     for column in independentVars:
         partialEta2copy.loc[partialEta2copy[column].notna(), column] = "*"
+        partialEta2copy.loc[partialEta2copy[column].isna(), column] = "x"
         lmeCopy.loc[lmeCopy[column].notna(), column] = "*"
-    merge = lmeCopy.merge(partialEta2copy, "outer", mergeCols, indicator=True)
+        lmeCopy.loc[lmeCopy[column].isna(), column] = "x"
+    merge = (lmeCopy.merge(partialEta2copy, "left", mergeCols, indicator=True)
+             .query("_merge == 'left_only'")
+             )
+    merge = merge.loc[merge.Vegetation.isin(["*"]) | merge.Precip.isin(["*"]) | merge.interaction.isin(["*"])]
+
+    # For each enzyme, functional group, or whatever dependent variable the new
+    # metagenomic dataset would be, label the independent variable(s) that
+    # would get Tukey'ed
     for index, row in merge.iterrows():
         lmeTrans = row["transformation"]
         dependent = row["dependent"]
-        subsetData = data.query("dependent == @dependent")
-        if lmeTrans != defaultTransformation:
+        partialEta2row = partialEta2copy.loc[partialEta2.dependent == dependent]
+        partialEta2trans = partialEta2row["transformation"].tolist()[0]
+        if lmeTrans != partialEta2trans:
             for var in independentVars:
-                if var == "interaction":
-                    subsetData["interaction"] = subsetData["Vegetation"] + " x " + subsetData["Precip"]
-                posthoc = pairwise_tukeyhsd(subsetData.data, subsetData[var])
-                posthoc = posthoc.summary().data
-                
-    return
+                if row[var] == "*":
+                    merge.loc[index, var] = "yes"
+        elif lmeTrans == partialEta2trans:
+            for var in independentVars:
+                partialEta2rowVar = partialEta2row[var].tolist()[0]
+                if row[var] == "*" and partialEta2rowVar == "x":
+                    merge.loc[index, var] = "yes"
+
+    # Actually performing Tukey's post-hoc
+    merge = merge.loc[merge.Vegetation.isin(["yes"]) | merge.Precip.isin(["yes"]) | merge.interaction.isin(["yes"])]
+    merge = merge.drop(columns=["timePoint", "_merge"])
+    for column in independentVars:
+        merge.loc[merge[column] != "yes", column] = None
+    # for index, row in merge.iterrows():
+    #     dependent = row["dependent"]
+    #     subsetData = data.query("dependent == @dependent")
+    #     subsetData["interaction"] = subsetData["Vegetation"] + " x " + subsetData["Precip"]
+    #     for var in independentVars:
+    #         if row[var] == "yes":
+    #             posthoc = pairwise_tukeyhsd(subsetData.data, subsetData[var])
+    #             posthoc = posthoc.summary().data
+    #             parameter = subsetData.parameter.tolist()[0]
+    #             transformation = row["transformation"]
+    #             resultsName = "{0}, {1}, {2}.xlsx".format(parameter, var,
+    #                                                       transformation)
+    #             specificPostHocFolder = TukeyPostHocFolder/dependent
+    #             resultsPath = specificPostHocFolder/resultsName
+    #             TukeyDF = pd.DataFrame(posthoc[1:], columns=posthoc[0])
+    #             if os.path.exists(resultsPath) is False:
+    #                 TukeyDF.to_excel(resultsPath, index=False)
+    return merge
+
+
+# %%
+VmaxTukeyTested = Tukey(Vmax, VmaxPartialEta2, VmaxLme)
