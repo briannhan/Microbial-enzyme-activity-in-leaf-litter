@@ -179,25 +179,125 @@ def Tukey(data, partialEta2, lme):
     merge = merge.drop(columns=["timePoint", "_merge"])
     for column in independentVars:
         merge.loc[merge[column] != "yes", column] = None
-    # for index, row in merge.iterrows():
-    #     dependent = row["dependent"]
-    #     subsetData = data.query("dependent == @dependent")
-    #     subsetData["interaction"] = subsetData["Vegetation"] + " x " + subsetData["Precip"]
-    #     for var in independentVars:
-    #         if row[var] == "yes":
-    #             posthoc = pairwise_tukeyhsd(subsetData.data, subsetData[var])
-    #             posthoc = posthoc.summary().data
-    #             parameter = subsetData.parameter.tolist()[0]
-    #             transformation = row["transformation"]
-    #             resultsName = "{0}, {1}, {2}.xlsx".format(parameter, var,
-    #                                                       transformation)
-    #             specificPostHocFolder = TukeyPostHocFolder/dependent
-    #             resultsPath = specificPostHocFolder/resultsName
-    #             TukeyDF = pd.DataFrame(posthoc[1:], columns=posthoc[0])
-    #             if os.path.exists(resultsPath) is False:
-    #                 TukeyDF.to_excel(resultsPath, index=False)
+    for index, row in merge.iterrows():
+        dependent = row["dependent"]
+        subsetData = data.query("dependent == @dependent")
+        subsetData["interaction"] = subsetData["Vegetation"] + " x " + subsetData["Precip"]
+        for var in independentVars:
+            if row[var] == "yes":
+                posthoc = pairwise_tukeyhsd(subsetData.data, subsetData[var])
+                posthoc = posthoc.summary().data
+                parameter = subsetData.parameter.tolist()[0]
+                transformation = row["transformation"]
+                resultsName = "{0}, {1}, {2}.xlsx".format(parameter, var,
+                                                          transformation)
+                specificPostHocFolder = TukeyPostHocFolder/dependent
+                resultsPath = specificPostHocFolder/resultsName
+                TukeyDF = pd.DataFrame(posthoc[1:], columns=posthoc[0])
+                if os.path.exists(resultsPath) is False:
+                    TukeyDF.to_excel(resultsPath, index=False)
     return merge
+
+
+def significantTukey(tukeyTestedDF, cldFolder):
+    """
+    This function looks through the dependent - independent variable
+    combinations in a dataset that have undergone Tukey post-hoc after running
+    linear mixed effect models and see which combinations are significantly
+    different under Tukey's post-hoc.
+
+    Parameters
+    ----------
+    tukeyTestedDF : Pandas dataframe
+        A dataframe where each row is a dependent variable and the columns
+        describe the independent variables that have undergone Tukey testing.
+    cldFolder : Path object
+        The path to the folder containing the compact letter displays for a
+        specific dataset
+
+    Returns
+    -------
+    A dataframe showing the dependent - independent variable combinations that
+    are significant under Tukey's post-hoc.
+
+    """
+    # Creating compact letter displays and determining which
+    # dependent - independent variable combinations are significant under
+    # Tukey's post-hoc
+    for index, row in tukeyTestedDF.iterrows():
+        dependent = row["dependent"]
+        transformation = row["transformation"]
+        parameter = row["parameter"]
+        specificPostHocFolder = TukeyPostHocFolder/dependent
+        for var in independentVars:
+            if row[var] == "yes":
+                tukeyResultsName = "{0}, {1}, {2}.xlsx".format(parameter, var,
+                                                               transformation)
+                tukeyResultsPath = specificPostHocFolder/tukeyResultsName
+                tukeyResultsDF = (pd.read_excel(tukeyResultsPath,
+                                                dtype={"reject": "bool"})
+                                  .query("reject == True")
+                                  )
+                if tukeyResultsDF.empty is False:
+                    group1 = tukeyResultsDF.group1.tolist()
+                    group2 = tukeyResultsDF.group2.tolist()
+                    pairs = list(zip(group1, group2))
+                    allGroups = list(set(group1 + group2))
+                    display = cld(pairs, allGroups)
+                    displayDF = pd.DataFrame({"groups": allGroups,
+                                              "labels": display})
+                    cldName = "{0}, {1}, {2}, Tukey labels.xlsx".format(dependent, var, transformation)
+                    cldExportPath = cldFolder/cldName
+                    tukeyTestedDF.loc[index, var] = "significant"
+                    if os.path.exists(cldExportPath) is False:
+                        displayDF.to_excel(cldExportPath, index=False)
+
+    # Returning a dataframe showing signficant combinations
+    significant = (tukeyTestedDF.copy()
+                   .query("Vegetation == 'significant' | Precip == 'significant' | interaction == 'significant'")
+                   )
+    return significant
+
+
+def updateTestResults(lme, tukeyTested, significant):
+    """
+    Updates the dataframe of linear mixed effect model results + Cohen's D by
+    removing Cohen's D values for independent variables that are insignificant
+    under Tukey's post-hoc
+
+    Parameters
+    ----------
+    lme : Pandas dataframe
+        A dataframe containing linear mixed effect model results and Cohen's D
+        for significant independent variables (minus the 2-way interaction).
+    tukeyTested : Pandas dataframe
+        A dataframe containing the dependent - independent variable
+        combinations that have undergone Tukey's post-hoc after linear mixed
+        effect models.
+    significant : Pandas dataframe
+        A dataframe containing significant dependent - independent variable
+        combinations after Tukey's post-hoc.
+
+    Returns
+    -------
+    A dataframe of the updated dataframe of significant linear mixed effect
+    model results, updated with Tukey's post-hoc.
+
+    """
+    updatedLme = lme.copy()
+    for index, row in VmaxTukeyTested.iterrows():
+        dependent = row["dependent"]
+        for var in independentVars:
+            tukeyResult = significant.loc[significant.dependent == dependent, var]
+            if row[var] == "yes" and (tukeyResult.empty or tukeyResult.tolist()[0] is None):
+                updatedLme.loc[updatedLme.dependent == dependent, var] = None
+
+    for var in independentVars:
+        updatedLme.loc[updatedLme[var].isna(), var] = None
+    return updatedLme
 
 
 # %%
 VmaxTukeyTested = Tukey(Vmax, VmaxPartialEta2, VmaxLme)
+VmaxTukeySignificant = significantTukey(VmaxTukeyTested, enzymeCLD)
+VmaxFinal = updateTestResults(VmaxLme, VmaxTukeyTested, VmaxTukeySignificant)
