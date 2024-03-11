@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from compactletterdisplay.cld_calculator import compact_letter_display as cld
+import numpy as np
 
 # Defining paths to the relevant directories
 repository = Path(os.getcwd())
@@ -24,6 +25,8 @@ litterChemCLD = cldFolder/"Litter chemistry"
 TukeyPostHocFolder = statsFolder/"Tukey posthoc"
 enzymeFolder = repository/"Enzyme activity data"
 litterChemFolder = repository/"Litter chemistry"
+VmaxDataPath = repository/"Enzyme activity data"/"Vmax.xlsx"
+litterChemDataPath = repository/"Litter chemistry"/"Litter chemistry FTIR.xlsx"
 
 """Importing the relevant files
 
@@ -79,6 +82,10 @@ litterChemPartialEta2 = (pd.read_excel(partialEta2path, "litterChemistry",
                          .rename(columns=litterChemPartialEta2cols)
                          .query("dependent != ['carboEster', 'amide']")
                          )
+VmaxData = pd.read_excel(VmaxDataPath)
+VmaxData["dependent"] = VmaxData["Enzyme"]
+litterChemData = pd.read_excel(litterChemDataPath, "Data")
+litterChemData["dependent"] = litterChemData["functionalGroup"]
 litterChemPartialEta2["transformation"] = None
 litterChemPartialEta2["parameter"] = litterChemPartialEta2["dependent"]
 VmaxLme = pd.read_excel(lmePath, "Vmax")
@@ -224,7 +231,8 @@ def significantTukey(tukeyTestedDF, cldFolder):
     # Creating compact letter displays and determining which
     # dependent - independent variable combinations are significant under
     # Tukey's post-hoc
-    for index, row in tukeyTestedDF.iterrows():
+    significant = tukeyTestedDF.copy()
+    for index, row in significant.iterrows():
         dependent = row["dependent"]
         transformation = row["transformation"]
         parameter = row["parameter"]
@@ -248,18 +256,19 @@ def significantTukey(tukeyTestedDF, cldFolder):
                                               "labels": display})
                     cldName = "{0}, {1}, {2}, Tukey labels.xlsx".format(dependent, var, transformation)
                     cldExportPath = cldFolder/cldName
-                    tukeyTestedDF.loc[index, var] = "significant"
+                    significant.loc[index, var] = "significant"
                     if os.path.exists(cldExportPath) is False:
                         displayDF.to_excel(cldExportPath, index=False)
 
     # Returning a dataframe showing signficant combinations
-    significant = (tukeyTestedDF.copy()
-                   .query("Vegetation == 'significant' | Precip == 'significant' | interaction == 'significant'")
-                   )
+    for var in independentVars:
+        significant.loc[significant[var] != "significant", var] = None
+    significant = significant.query("Vegetation == 'significant' | Precip == 'significant' | interaction == 'significant'")
+
     return significant
 
 
-def updateTestResults(lme, tukeyTested, significant):
+def updateTestResults(lme, tukeyTested, significant, partialEta2, data):
     """
     Updates the dataframe of linear mixed effect model results + Cohen's D by
     removing Cohen's D values for independent variables that are insignificant
@@ -277,6 +286,11 @@ def updateTestResults(lme, tukeyTested, significant):
     significant : Pandas dataframe
         A dataframe containing significant dependent - independent variable
         combinations after Tukey's post-hoc.
+    partialEta2 : Pandas dataframe
+        A dataframe of partial eta squared values from the original analysis
+        of 3-way ANOVA + Tukey's post-hoc
+    data : Pandas dataframe
+        A dataframe of the dataset
 
     Returns
     -------
@@ -285,19 +299,80 @@ def updateTestResults(lme, tukeyTested, significant):
 
     """
     updatedLme = lme.copy()
-    for index, row in VmaxTukeyTested.iterrows():
-        dependent = row["dependent"]
-        for var in independentVars:
-            tukeyResult = significant.loc[significant.dependent == dependent, var]
-            if row[var] == "yes" and (tukeyResult.empty or tukeyResult.tolist()[0] is None):
-                updatedLme.loc[updatedLme.dependent == dependent, var] = None
+
+    # Updating the linear mixed effect model results with Tukey's post-hoc
+    if significant.empty is False:
+        for index, row in significant.iterrows():
+            dependent = row["dependent"]
+            for var in independentVars:
+                if row[var] == "significant":
+                    if var == "interaction":
+                        updatedLme.loc[updatedLme.dependent == dependent, var] = "*"
+                elif row[var] is None:
+                    updatedLme.loc[updatedLme.dependent == dependent, var] = None
+    elif significant.empty:
+        for index, row in tukeyTested.iterrows():
+            dependent = row["dependent"]
+            for var in independentVars:
+                if row[var] == "yes":
+                    updatedLme.loc[updatedLme.dependent == dependent, var] = None
 
     for var in independentVars:
+        updatedLme.loc[updatedLme[var].isna(), var] = pd.NA
         updatedLme.loc[updatedLme[var].isna(), var] = None
+
+    # Updating the linear mixed effect model results with additional
+    # results found significant under ANOVA + Tukey's
+    partialEta2copy = partialEta2.copy()
+    for var in independentVars:
+        partialEta2copy.loc[partialEta2copy[var].notna(), var] = "*"
+
+    if "Enzyme" in data.columns:
+        parameter = "Vmax"
+    elif "functionalGroup" in data.columns:
+        parameter = "spectralArea"
+
+    for index, row in updatedLme.iterrows():
+        lmeTrans = row.transformation
+        dependent = row.dependent
+        subsetData = data.query("dependent == @dependent")
+        if lmeTrans == "log10":
+            subsetData[parameter] = np.log10(subsetData[parameter])
+        elif lmeTrans == "reciprocal":
+            subsetData[parameter] = 1/subsetData[parameter]
+        partialEta2row = partialEta2copy.loc[partialEta2.dependent == dependent]
+        partialEta2trans = partialEta2row["transformation"].tolist()[0]
+        if lmeTrans == partialEta2trans:
+            for var in independentVars:
+                if partialEta2row[var].tolist()[0] == "*" and (isinstance(row[var], float) is False or isinstance(row[var], str) is False):
+                    if var != "interaction":
+                        summary = subsetData.groupby(var)[parameter].agg(["mean", "var", "size"])
+                        mean1 = summary.iloc[0, 0]
+                        var1 = summary.iloc[0, 1]
+                        size1 = summary.iloc[0, 2]
+                        mean2 = summary.iloc[1, 0]
+                        var2 = summary.iloc[1, 1]
+                        size2 = summary.iloc[1, 2]
+                        pooledVar = (((size1 - 1)*var1) + ((size2 - 1)*var2))/(size1 + size2 - 2)
+                        pooledStd = pooledVar**(1/2)
+                        CohenD = (mean1 - mean2)/pooledStd
+                        CohenD = np.abs(CohenD)
+                        updatedLme.loc[index, var] = CohenD
+                    elif var == "interaction":
+                        updatedLme.loc[index, var] = "*"
+                        
     return updatedLme
 
 
 # %%
 VmaxTukeyTested = Tukey(Vmax, VmaxPartialEta2, VmaxLme)
 VmaxTukeySignificant = significantTukey(VmaxTukeyTested, enzymeCLD)
-VmaxFinal = updateTestResults(VmaxLme, VmaxTukeyTested, VmaxTukeySignificant)
+VmaxFinal = updateTestResults(VmaxLme, VmaxTukeyTested, VmaxTukeySignificant,
+                              VmaxPartialEta2, VmaxData)
+
+litterChemTukeyTested = Tukey(litterChem, litterChemPartialEta2, litterChemLme)
+litterChemTukeySignificant = significantTukey(litterChemTukeyTested,
+                                              litterChemCLD)
+litterChemFinal = updateTestResults(litterChemLme, litterChemTukeyTested,
+                                    litterChemTukeySignificant,
+                                    litterChemPartialEta2, litterChemData)
