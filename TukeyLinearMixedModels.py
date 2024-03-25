@@ -443,8 +443,61 @@ From the FTIR dataset
 Performing Tukey's post-hoc on them and then creating compact letter displays
 for them
 """
-missingCLD = {"CBH": "Vegetation", "NAG": "Vegetation",
-              "carboEster2": "Vegetation", "carboEster2": "Precip",
-              "glycosidicBond": "Vegetation", "glycosidicBond": "Precip"}
-# for dependent in missingCLD:
-#     df = 
+VmaxMissingCLD = [["CBH", "Vegetation"], ["NAG", "Vegetation"]]
+litterChemMissingCLD = [["carboEster2", "Vegetation"],
+                        ["carboEster2", "Precip"],
+                        ["glycosidicBond", "Vegetation"],
+                        ["glycosidicBond", "Precip"]]
+
+for combination in VmaxMissingCLD:
+    dependent = combination[0]
+    independent = combination[1]
+    df = Vmax.query("dependent == @dependent")
+    df.data = np.log10(df.data)
+    tukeyResults = pairwise_tukeyhsd(df.data, df[independent])
+    tukeyResults = tukeyResults.summary().data
+    tukeyResults = pd.DataFrame(tukeyResults[1:], columns=tukeyResults[0])
+    specificTukeyFolder = TukeyPostHocFolder/dependent
+    tukeyFileName = "Vmax, {0}, log10.xlsx".format(independent)
+    tukeyFilePath = specificTukeyFolder/tukeyFileName
+    if os.path.exists(tukeyFilePath) is False:
+        tukeyResults.to_excel(tukeyFilePath, index=False)
+    display = generateCLD(tukeyResults)
+    if display is not None:
+        cldName = "{0}, {1}, Tukey labels.xlsx".format(dependent, independent)
+        cldPath = enzymeCLD/cldName
+        if os.path.exists(cldPath) is False:
+            display.to_excel(cldPath, index=False)
+
+for combination in litterChemMissingCLD:
+    dependent = combination[0]
+    independent = combination[1]
+    df = litterChem.query("dependent == @dependent")
+    tukeyResults = pairwise_tukeyhsd(df.data, df[independent])
+    tukeyResults = tukeyResults.summary().data
+    tukeyResults = pd.DataFrame(tukeyResults[1:], columns=tukeyResults[0])
+    specificTukeyFolder = TukeyPostHocFolder/dependent
+    tukeyFileName = "{0}, {1}, None.xlsx".format(dependent, independent)
+    tukeyFilePath = specificTukeyFolder/tukeyFileName
+    if os.path.exists(tukeyFilePath) is False:
+        tukeyResults.to_excel(tukeyFilePath, index=False)
+    display = generateCLD(tukeyResults)
+    if display is not None:
+        cldName = "{0}, {1}, Tukey labels.xlsx".format(dependent, independent)
+        cldPath = litterChemCLD/cldName
+        if os.path.exists(cldPath) is False:
+            display.to_excel(cldPath, index=False)
+
+"""From these additional Tukey's, we see that
+
+carboEster2 - Vegetation, significant
+carboEster2 - Precipitation, significant
+glycosidicBond - Vegetation, significant
+glycosidicBond - Precipitation, not significant
+
+CBH - Vegetation, significant
+NAG - Vegetation, significant
+
+Need to update the results for litter chemistry
+"""
+litterChemFinal.loc[litterChemFinal.dependent == "glycosidicBond", "Precip"] = None

@@ -861,6 +861,14 @@ amide2model1 = mixedLinearModel(amide2df, "spectralArea")
 slightly significant interaction."""
 amide2significance = ["amide2", "*", "-", "-", None]
 # %%
+"""Ashish had given me a new metagenomic dataset in which the dependent
+variable is the number of genes per million reads that degrade a specific
+substrate. Not entirely sure what the units mean, still waiting for some
+clarification from him. But this is what we're using now instead of the
+weird previous dataset of the proportion of CAZyme genes that degrade a
+specific substrate."""
+
+# %%
 # Calculating effect sizes for litter chemistry functional groups
 litterChemSignificance = [glycosidicBondSignificance, C_O_stretchSignificance,
                           alkaneSignificance, lipidSignificance,
