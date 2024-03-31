@@ -861,14 +861,6 @@ amide2model1 = mixedLinearModel(amide2df, "spectralArea")
 slightly significant interaction."""
 amide2significance = ["amide2", "*", "-", "-", None]
 # %%
-"""Ashish had given me a new metagenomic dataset in which the dependent
-variable is the number of genes per million reads that degrade a specific
-substrate. Not entirely sure what the units mean, still waiting for some
-clarification from him. But this is what we're using now instead of the
-weird previous dataset of the proportion of CAZyme genes that degrade a
-specific substrate."""
-
-# %%
 # Calculating effect sizes for litter chemistry functional groups
 litterChemSignificance = [glycosidicBondSignificance, C_O_stretchSignificance,
                           alkaneSignificance, lipidSignificance,
@@ -876,6 +868,29 @@ litterChemSignificance = [glycosidicBondSignificance, C_O_stretchSignificance,
                           amide1significance, amide2significance]
 litterChemResults = mainEffectsCohenD(litterChemSignificance, litterChemDF,
                                       "functionalGroup")
+# %%
+"""Ashish had given me a new metagenomic dataset in which the dependent
+variable is the number of genes per million reads that degrade a specific
+substrate. Not entirely sure what the units mean, still waiting for some
+clarification from him. But this is what we're using now instead of the
+weird previous dataset of the proportion of CAZyme genes that degrade a
+specific substrate."""
+metagenomicFolder = repository/"CAZyme metagenomic data"
+metagenomicFileName = "CAZyme gene counts.csv"
+metagenomicFilePath = metagenomicFolder/metagenomicFileName
+metagenomic = (pd.read_csv(metagenomicFilePath, dtype={"timePoint": "int8"})
+               .merge(timeDF, "inner", "timePoint")
+               )
+putativeSubstrates = metagenomic.substrate.drop_duplicates().tolist()
+# %%
+# Running linear mixed effect models for cellulose
+celluloseDF = metagenomic.query("substrate == 'cellulose'")
+
+# Running the model without transformations
+cellulose1 = mixedLinearModel(celluloseDF, "genesPerMillionReads")
+
+# %%
+# Running linear mixed effect models for chitin
 # %%
 # Exporting the linear mixed model effect results
 mixedModelEffectsName = "Linear mixed models, Cohen's D for main effects.xlsx"
