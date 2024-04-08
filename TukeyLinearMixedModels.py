@@ -8,6 +8,15 @@ now, linear mixed models have only been ran on Vmax and FTIR bands. While I do
 have a CAZyme gene dataset, Ashish said that he will give me a better dataset
 to work on that, I presume, will look at %reads instead of %CAZyme gene
 proportions.
+
+And now he had given me that dataset. It sums up the number of CAZyme genes for
+a putative substrate per million reads. I'm assuming that this is essentially
+a weighted sum of the number of unique genes multiplied by their copies, so
+this measure is essentially the number of gene copies for a putative substrate
+per million reads. So an increase in this number could either mean that there
+are an increasing number of unique genes (e.g. an increase of different taxa
+or increasing evolutionary rates) or an increasing abundance of a specific
+taxon.
 """
 import os
 from pathlib import Path
@@ -27,6 +36,8 @@ enzymeFolder = repository/"Enzyme activity data"
 litterChemFolder = repository/"Litter chemistry"
 VmaxDataPath = repository/"Enzyme activity data"/"Vmax.xlsx"
 litterChemDataPath = repository/"Litter chemistry"/"Litter chemistry FTIR.xlsx"
+metagenomicFolder = repository/"CAZyme metagenomic data"
+metagenomicDataPath = metagenomicFolder/"CAZyme gene counts.csv"
 
 """Importing the relevant files
 
@@ -43,6 +54,9 @@ Partial eta-squared.xlsx
 Linear mixed models, Cohen's D for main effects.xlsx
 - Vmax, 2nd tab
 - litterChem, 3rd tab
+- CAZyme metagenomic, 4th tab
+
+CAZyme gene counts.csv
 
 Let's rename the columns across all these dataframes so that they are uniform.
 The results dataframes (Partial eta-squared & linear mixed models) will have
@@ -82,8 +96,15 @@ litterChemPartialEta2 = (pd.read_excel(partialEta2path, "litterChemistry",
                          .rename(columns=litterChemPartialEta2cols)
                          .query("dependent != ['carboEster', 'amide']")
                          )
-VmaxData = pd.read_excel(VmaxDataPath)
-VmaxData["dependent"] = VmaxData["Enzyme"]
+
+metagenomic = (pd.read_csv(metagenomicDataPath)
+               .rename(columns={"substrate": "dependent",
+                                "genesPerMillionReads": "data"})
+               )
+metagenomicLme = pd.read_excel(lmePath, "CAZyme metagenomic")
+metagenomicLme["parameter"] = "Genes per million reads"
+metagenomicLme.dependent = metagenomicLme.dependent.str.capitalize()
+
 litterChemData = pd.read_excel(litterChemDataPath, "Data")
 litterChemData["dependent"] = litterChemData["functionalGroup"]
 litterChemPartialEta2["transformation"] = None
@@ -97,12 +118,14 @@ independentVars = VmaxLme.columns.tolist()[2:-1]
 mergeCols = VmaxLme.columns.tolist()[1:]
 mergeCols.append("dependent")
 
-# Filtering out the insignificant dependent variables from the partial eta^2
-# and linear mixed effect model dataframes
-# VmaxPartialEta2 = VmaxPartialEta2.loc[VmaxPartialEta2.Vegetation.notna() | VmaxPartialEta2.Precip.notna() | VmaxPartialEta2.interaction.notna()]
-# litterChemPartialEta2 = litterChemPartialEta2.loc[litterChemPartialEta2.Vegetation.notna() | litterChemPartialEta2.Precip.notna() | litterChemPartialEta2.interaction.notna()]
-# VmaxLme = VmaxLme.loc[VmaxLme.Vegetation.notna() | VmaxLme.Precip.notna() | VmaxLme.interaction.notna()]
-# litterChemLme = litterChemLme.loc[litterChemLme.Vegetation.notna() | litterChemLme.Precip.notna() | litterChemLme.interaction.notna()]
+"""Creating a fake dataframe of partial-eta2 for the metagenomic data to
+facilitate running the functions below"""
+fakeNull = metagenomicLme.shape[0]*[None]
+fakeResults = {"dependent": metagenomicLme.dependent, "timePoint": fakeNull,
+               "Vegetation": fakeNull, "Precip": fakeNull,
+               "interaction": fakeNull, "transformation": fakeNull,
+               "parameter": metagenomicLme.parameter}
+metagenomicPartialEta2 = pd.DataFrame(fakeResults)
 # %%
 """Performing Tukey's post-hoc.
 

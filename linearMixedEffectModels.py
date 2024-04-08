@@ -670,7 +670,8 @@ def CohenD(series1, series2):
     return d
 
 
-dependentVarDict = {"Enzyme": "Vmax", "functionalGroup": "spectralArea"}
+dependentVarDict = {"Enzyme": "Vmax", "functionalGroup": "spectralArea",
+                    "substrate": "genesPerMillionReads"}
 
 
 def mainEffectsCohenD(significanceLists, data, dataset):
@@ -889,8 +890,96 @@ celluloseDF = metagenomic.query("substrate == 'cellulose'")
 # Running the model without transformations
 cellulose1 = mixedLinearModel(celluloseDF, "genesPerMillionReads")
 
+"""Both main effects are significant. Interaction is significant. Residuals are
+normally distributed."""
+celluloseSignificance = ["cellulose", "***", "**", "***", None]
 # %%
 # Running linear mixed effect models for chitin
+
+chitinDF = metagenomic.query("substrate == 'chitin'")
+
+# Running the model without transformations
+chitin1 = mixedLinearModel(chitinDF, "genesPerMillionReads")
+
+"""Residuals are normally distributed. Significant Vegetation effect only"""
+chitinSignificance = ["chitin", "*", None, None, None]
+# %%
+# Running linear mixed effect models for hemicellulose
+hemicelluloseDF = metagenomic.query("substrate == 'hemicellulose'")
+
+# Running model without transformations
+hemicellulose1 = mixedLinearModel(hemicelluloseDF, "genesPerMillionReads")
+
+"Residuals are normally distributed. Significant main effects. No interaction"
+hemicelluloseSignificance = ["hemicellulose", "***", "*", None, None]
+# %%
+# Running linear mixed effect models for lignin
+ligninDF = metagenomic.query("substrate == 'lignin'")
+
+# Running model without transformations
+lignin1 = mixedLinearModel(ligninDF, "genesPerMillionReads")
+
+"Normally distributed residuals. Significant main effects. No interaction"
+ligninSignificance = ["lignin", "***", "**", None, None]
+# %%
+# Running linear mixed effect models for oligosaccharides
+oligosaccharidesDF = metagenomic.query("substrate == 'oligosaccharides'")
+
+# Running model without transformations
+oligosaccharides1 = mixedLinearModel(oligosaccharidesDF,
+                                     "genesPerMillionReads")
+
+# Residuals not normally distributed. Transforming and re-testing
+oligosaccharides2 = mixedLinearModel(oligosaccharidesDF,
+                                     "genesPerMillionReads", "log10")
+
+# Log-10 transformation still not normal. Reciprocal transforming and re-test
+oligosaccharides3 = mixedLinearModel(oligosaccharidesDF,
+                                     "genesPerMillionReads", "reciprocal")
+
+"""Reciprocal transformation results in normal residuals. Marginally
+significant vegetation effect. No other significance"""
+oligosaccharidesSignificance = ["oligosaccharides", "-", None, None,
+                                "reciprocal"]
+# %%
+# Running linear mixed effect models for peptidoglycan
+peptidoglycanDF = metagenomic.query("substrate == 'peptidoglycan'")
+
+# Running model without transformations
+peptidoglycan1 = mixedLinearModel(peptidoglycanDF, "genesPerMillionReads")
+
+"Normally distributed residuals. No significant main effects or interaction"
+peptidoglycanSignificance = ["peptidoglycan", None, None, None, None]
+# %%
+# Running linear mixed effect models for polysaccharides
+polysaccharidesDF = metagenomic.query("substrate == 'polysaccharides'")
+
+# Running model without transformations
+polysaccharides1 = mixedLinearModel(polysaccharidesDF, "genesPerMillionReads")
+
+"Normally distributed residuals. No significant main effects or interaction"
+polysaccharidesSignificance = ["polysaccharides", None, None, None, None]
+# %%
+# Running linear mixed effect models for starch
+starchDF = metagenomic.query("substrate == 'starch'")
+
+# Running model without transformations
+starch1 = mixedLinearModel(starchDF, "genesPerMillionReads")
+
+"""Residuals are, almost not normal (Shapiro-Wilk p = 0.0600993). Hmm. Let's
+keep it. Significant vegetation effect. No precipitation effect. No
+interaction."""
+starchSignificance = ["starch", "*", None, None, None]
+# %%
+"""Calculating Cohen's D as effect size for significant or marginally
+significant main effects"""
+metagenomicSignificance = [celluloseSignificance, chitinSignificance,
+                           hemicelluloseSignificance, ligninSignificance,
+                           oligosaccharidesSignificance,
+                           peptidoglycanSignificance,
+                           polysaccharidesSignificance, starchSignificance]
+metagenomicResults = mainEffectsCohenD(metagenomicSignificance, metagenomic,
+                                       "substrate")
 # %%
 # Exporting the linear mixed model effect results
 mixedModelEffectsName = "Linear mixed models, Cohen's D for main effects.xlsx"
@@ -908,7 +997,14 @@ note = ["The Vmax and FTIR data were previously analyzed using 3-way ANOVAs",
         "calculated after running Tukey post-hoc. A final difference is that",
         "Effect sizes this time were calculated at a significance level of",
         "alpha = 0.10. Tukey's post-hoc should be stricter, I'll drop the",
-        "significance level down to 0.05 later."]
+        "significance level down to 0.05 later.",
+        "",
+        "Ashish had also re-worked his metagenomic dataset to sum up the",
+        "number of CAZyme genes dedicated to a specific substrate per million",
+        "reads, as opposed to last time in which he calculated a proportion",
+        "of CAZyme genes dedicated to a specific substrate out of all",
+        "possible CAZyme genes. I analyzed this dataset using linear mixed",
+        "effect models as well."]
 readMe = pd.DataFrame({"Note": note})
 statsFolder = repository/"Statistical analyses"
 resultsPath = statsFolder/mixedModelEffectsName
@@ -917,3 +1013,4 @@ if os.path.exists(resultsPath) is False:
         readMe.to_excel(w, "ReadMe", index=False)
         enzymeResults.to_excel(w, "Vmax", index=False)
         litterChemResults.to_excel(w, "litterChem", index=False)
+        metagenomicResults.to_excel(w, "CAZyme metagenomic", index=False)
