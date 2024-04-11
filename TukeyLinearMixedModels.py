@@ -31,6 +31,7 @@ statsFolder = repository/"Statistical analyses"
 cldFolder = statsFolder/"Compact letter displays"
 enzymeCLD = cldFolder/"Enzyme Vmax"
 litterChemCLD = cldFolder/"Litter chemistry"
+metagenomicCLD = cldFolder/"CAZyme gene per million reads"
 TukeyPostHocFolder = statsFolder/"Tukey posthoc"
 enzymeFolder = repository/"Enzyme activity data"
 litterChemFolder = repository/"Litter chemistry"
@@ -39,7 +40,7 @@ litterChemDataPath = repository/"Litter chemistry"/"Litter chemistry FTIR.xlsx"
 metagenomicFolder = repository/"CAZyme metagenomic data"
 metagenomicDataPath = metagenomicFolder/"CAZyme gene counts.csv"
 
-"""Importing the relevant files
+"""I'm going to import the following files
 
 Litter chemistry FTIR.xlsx
 - Data, 1st tab
@@ -67,15 +68,34 @@ results will be renamed to 'dependent'. From the partial eta-squared results,
 the only interaction that will be kept will be 'Vegetation x Precipitation'.
 This column will be renamed to 'interaction'
 """
-litterChemPath = litterChemFolder/"Litter chemistry FTIR.xlsx"
-VmaxPath = enzymeFolder/"Vmax.xlsx"
-partialEta2path = statsFolder/"Partial eta-squared.xlsx"
 lmePath = statsFolder/"Linear mixed models, Cohen's D for main effects.xlsx"
+partialEta2path = statsFolder/"Partial eta-squared.xlsx"
+
+"""Importing litter chemistry data, factorial ANOVA + Tukey's results for
+litter chemistry, and linear mixed effect model results for litter chemistry"""
+litterChemPath = litterChemFolder/"Litter chemistry FTIR.xlsx"
 litterChem = (pd.read_excel(litterChemPath, "Data")
               .rename(columns={"functionalGroup": "dependent",
                                "spectralArea": "data"})
               )
 litterChem["parameter"] = litterChem["dependent"]
+litterChemPartialEta2cols = {"functionalGroup": "dependent",
+                             "Precipitation": "Precip",
+                             "Vegetation x Precipitation": "interaction"}
+litterChemPartialEta2 = (pd.read_excel(partialEta2path, "litterChemistry",
+                                       usecols=[0, 1, 2, 3, 6])
+                         .rename(columns=litterChemPartialEta2cols)
+                         .query("dependent != ['carboEster', 'amide']")
+                         )
+litterChemPartialEta2["transformation"] = None
+litterChemPartialEta2["parameter"] = litterChemPartialEta2["dependent"]
+litterChemLme = pd.read_excel(lmePath, "litterChem")
+litterChemLme.loc[litterChemLme.transformation.isna(), "transformation"] = None
+litterChemLme["parameter"] = litterChemLme["dependent"]
+
+"""Importing Vmax data, factorial ANOVA + Tukey's for Vmax, and linear mixed
+effect model results for Vmax"""
+VmaxPath = enzymeFolder/"Vmax.xlsx"
 Vmax = (pd.read_excel(VmaxPath, dtype={"timePoint": "string"})
         .rename(columns={"Enzyme": "dependent", "Vmax": "data"})
         )
@@ -88,35 +108,24 @@ VmaxPartialEta2 = (pd.read_excel(partialEta2path, "Vmax",
                    )
 VmaxPartialEta2["transformation"] = "log10"
 VmaxPartialEta2["parameter"] = "Vmax"
-litterChemPartialEta2cols = {"functionalGroup": "dependent",
-                             "Precipitation": "Precip",
-                             "Vegetation x Precipitation": "interaction"}
-litterChemPartialEta2 = (pd.read_excel(partialEta2path, "litterChemistry",
-                                       usecols=[0, 1, 2, 3, 6])
-                         .rename(columns=litterChemPartialEta2cols)
-                         .query("dependent != ['carboEster', 'amide']")
-                         )
+VmaxLme = pd.read_excel(lmePath, "Vmax")
+VmaxLme["parameter"] = "Vmax"
+independentVars = VmaxLme.columns.tolist()[2:-1]
+mergeCols = VmaxLme.columns.tolist()[1:]
+mergeCols.append("dependent")
 
+"""Importing the new metagenomic dataset and linear mixed effect model
+results for the dataset"""
 metagenomic = (pd.read_csv(metagenomicDataPath)
                .rename(columns={"substrate": "dependent",
                                 "genesPerMillionReads": "data"})
                )
+metagenomic["dependent"] = metagenomic.dependent.str.capitalize()
+metagenomic["parameter"] = "Genes per million reads"
 metagenomicLme = pd.read_excel(lmePath, "CAZyme metagenomic")
 metagenomicLme["parameter"] = "Genes per million reads"
 metagenomicLme.dependent = metagenomicLme.dependent.str.capitalize()
-
-litterChemData = pd.read_excel(litterChemDataPath, "Data")
-litterChemData["dependent"] = litterChemData["functionalGroup"]
-litterChemPartialEta2["transformation"] = None
-litterChemPartialEta2["parameter"] = litterChemPartialEta2["dependent"]
-VmaxLme = pd.read_excel(lmePath, "Vmax")
-VmaxLme["parameter"] = "Vmax"
-litterChemLme = pd.read_excel(lmePath, "litterChem")
-litterChemLme.loc[litterChemLme.transformation.isna(), "transformation"] = None
-litterChemLme["parameter"] = litterChemLme["dependent"]
-independentVars = VmaxLme.columns.tolist()[2:-1]
-mergeCols = VmaxLme.columns.tolist()[1:]
-mergeCols.append("dependent")
+metagenomicLme.loc[metagenomicLme.transformation.isna(), "transformation"] = None
 
 """Creating a fake dataframe of partial-eta2 for the metagenomic data to
 facilitate running the functions below"""
@@ -408,16 +417,16 @@ def updateTestResults(lme, tukeyTested, significant, partialEta2, data):
         dependent = row.dependent
         subsetData = data.query("dependent == @dependent")
         if lmeTrans == "log10":
-            subsetData[parameter] = np.log10(subsetData[parameter])
+            subsetData["data"] = np.log10(subsetData["data"])
         elif lmeTrans == "reciprocal":
-            subsetData[parameter] = 1/subsetData[parameter]
+            subsetData["data"] = 1/subsetData["data"]
         partialEta2row = partialEta2copy.loc[partialEta2.dependent == dependent]
         partialEta2trans = partialEta2row["transformation"].tolist()[0]
         if lmeTrans == partialEta2trans:
             for var in independentVars:
                 if partialEta2row[var].tolist()[0] == "*" and (isinstance(row[var], float) is False or isinstance(row[var], str) is False):
                     if var != "interaction":
-                        summary = subsetData.groupby(var)[parameter].agg(["mean", "var", "size"])
+                        summary = subsetData.groupby(var)["data"].agg(["mean", "var", "size"])
                         mean1 = summary.iloc[0, 0]
                         var1 = summary.iloc[0, 1]
                         size1 = summary.iloc[0, 2]
@@ -442,15 +451,22 @@ combinations"""
 VmaxTukeyTested = Tukey(Vmax, VmaxPartialEta2, VmaxLme)
 VmaxTukeySignificant = significantTukey(VmaxTukeyTested, enzymeCLD)
 VmaxFinal = updateTestResults(VmaxLme, VmaxTukeyTested, VmaxTukeySignificant,
-                              VmaxPartialEta2, VmaxData)
+                              VmaxPartialEta2, Vmax)
 
 litterChemTukeyTested = Tukey(litterChem, litterChemPartialEta2, litterChemLme)
 litterChemTukeySignificant = significantTukey(litterChemTukeyTested,
                                               litterChemCLD)
 litterChemFinal = updateTestResults(litterChemLme, litterChemTukeyTested,
                                     litterChemTukeySignificant,
-                                    litterChemPartialEta2, litterChemData)
+                                    litterChemPartialEta2, litterChem)
 
+metagenomicTukeyTested = Tukey(metagenomic, metagenomicPartialEta2,
+                               metagenomicLme)
+metagenomicSignificant = significantTukey(metagenomicTukeyTested,
+                                          metagenomicCLD)
+metagenomicFinal = updateTestResults(metagenomicLme, metagenomicTukeyTested,
+                                     metagenomicSignificant,
+                                     metagenomicPartialEta2, metagenomic)
 # %%
 """The following dependent - independent variable combinations are missing
 compact letter displays
@@ -466,50 +482,74 @@ From the FTIR dataset
 Performing Tukey's post-hoc on them and then creating compact letter displays
 for them
 """
+
+
+def manualTukey(combinations, dataset, cldFolder, finalResults):
+    """
+    This performs Tukey's post-hoc on some manual combinations of
+    independent-dependent variables that the user can specify. For example, if
+    the procedure above of performing Tukey's on linear mixed effect models
+    and factorial ANOVAs had missed certain combinations that should be tested,
+    then the user can run this function on those missing combinations.
+
+    Parameters
+    ----------
+    combinations : List
+        A list of lists. The inner lists each consist of 2 elements, the
+        dependent variable and the independent variable. The outer list
+        consists of these inner lists. There is no additional nesting of lists.
+    dataset : Pandas dataframe
+        The dataset on which the additional Tukey's will be performed.
+    cldFolder : Path
+        The path to the directory that holds the compact letter displays for
+        a dataset.
+    finalResults : Pandas dataframe
+        The dataframe of linear mixed effect models + previous factorial ANOVAs
+        + Tukey's analyses on a dataset. The transformations for a dependent
+        variable will be obtained from this dataframe.
+
+    Returns
+    -------
+    None.
+
+    """
+    for combination in combinations:
+        dependent = combination[0]
+        independent = combination[1]
+        df = dataset.query("dependent == @dependent")
+        transformation = finalResults.loc[finalResults.dependent == dependent, "transformation"].tolist()[0]
+        parameter = finalResults.loc[finalResults.dependent == dependent, "parameter"].tolist()[0]
+        if transformation == "log10":
+            df["data"] = np.log10(df["data"])
+        elif transformation == "reciprocal":
+            df["data"] = 1/df["data"]
+        tukeyResults = pairwise_tukeyhsd(df.data, df[independent])
+        tukeyResults = tukeyResults.summary().data
+        tukeyResults = pd.DataFrame(tukeyResults[1:], columns=tukeyResults[0])
+        specificTukeyFolder = TukeyPostHocFolder/dependent
+        tukeyFileName = "{0}, {1}, {2}.xlsx".format(parameter, independent,
+                                                    transformation)
+        tukeyFilePath = specificTukeyFolder/tukeyFileName
+        if os.path.exists(tukeyFilePath) is False:
+            tukeyResults.to_excel(tukeyFilePath, index=False)
+        display = generateCLD(tukeyResults)
+        if display is not None:
+            cldName = "{0}, {1}, Tukey labels.xlsx".format(dependent,
+                                                           independent)
+            cldPath = cldFolder/cldName
+            if os.path.exists(cldPath) is False:
+                display.to_excel(cldPath, index=False)
+    return
+
+
 VmaxMissingCLD = [["CBH", "Vegetation"], ["NAG", "Vegetation"]]
 litterChemMissingCLD = [["carboEster2", "Vegetation"],
                         ["carboEster2", "Precip"],
                         ["glycosidicBond", "Vegetation"],
                         ["glycosidicBond", "Precip"]]
 
-for combination in VmaxMissingCLD:
-    dependent = combination[0]
-    independent = combination[1]
-    df = Vmax.query("dependent == @dependent")
-    df.data = np.log10(df.data)
-    tukeyResults = pairwise_tukeyhsd(df.data, df[independent])
-    tukeyResults = tukeyResults.summary().data
-    tukeyResults = pd.DataFrame(tukeyResults[1:], columns=tukeyResults[0])
-    specificTukeyFolder = TukeyPostHocFolder/dependent
-    tukeyFileName = "Vmax, {0}, log10.xlsx".format(independent)
-    tukeyFilePath = specificTukeyFolder/tukeyFileName
-    if os.path.exists(tukeyFilePath) is False:
-        tukeyResults.to_excel(tukeyFilePath, index=False)
-    display = generateCLD(tukeyResults)
-    if display is not None:
-        cldName = "{0}, {1}, Tukey labels.xlsx".format(dependent, independent)
-        cldPath = enzymeCLD/cldName
-        if os.path.exists(cldPath) is False:
-            display.to_excel(cldPath, index=False)
-
-for combination in litterChemMissingCLD:
-    dependent = combination[0]
-    independent = combination[1]
-    df = litterChem.query("dependent == @dependent")
-    tukeyResults = pairwise_tukeyhsd(df.data, df[independent])
-    tukeyResults = tukeyResults.summary().data
-    tukeyResults = pd.DataFrame(tukeyResults[1:], columns=tukeyResults[0])
-    specificTukeyFolder = TukeyPostHocFolder/dependent
-    tukeyFileName = "{0}, {1}, None.xlsx".format(dependent, independent)
-    tukeyFilePath = specificTukeyFolder/tukeyFileName
-    if os.path.exists(tukeyFilePath) is False:
-        tukeyResults.to_excel(tukeyFilePath, index=False)
-    display = generateCLD(tukeyResults)
-    if display is not None:
-        cldName = "{0}, {1}, Tukey labels.xlsx".format(dependent, independent)
-        cldPath = litterChemCLD/cldName
-        if os.path.exists(cldPath) is False:
-            display.to_excel(cldPath, index=False)
+manualTukey(VmaxMissingCLD, Vmax, enzymeCLD, VmaxFinal)
+manualTukey(litterChemMissingCLD, litterChem, litterChemCLD, litterChemFinal)
 
 """From these additional Tukey's, we see that
 
