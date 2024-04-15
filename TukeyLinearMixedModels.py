@@ -183,6 +183,9 @@ def Tukey(data, partialEta2, lme):
     Exports Tukey's results if they are performed.
 
     """
+    # Isolating the dependent - independent variable combinations that have
+    # not undergone Tukey's from the previous ANOVA + Tukey's analysis, so
+    # that there are less combinations to undergo Tukey's post-hoc this time
     partialEta2copy = partialEta2.copy()
     lmeCopy = lme.copy()
     for column in independentVars:
@@ -382,6 +385,11 @@ def updateTestResults(lme, tukeyTested, significant, partialEta2, data):
 
     # Updating the linear mixed effect model results with Tukey's post-hoc
     if significant.empty is False:
+        '''For a dependent variable in which an independent variable had been
+        found to be significant, this for loop updates the linear mixed effect
+        model results to declare this combination as significant. However,
+        this for loop ignores dependent variables that have been tested but
+        have not been found significant.'''
         for index, row in significant.iterrows():
             dependent = row["dependent"]
             for var in independentVars:
@@ -390,6 +398,16 @@ def updateTestResults(lme, tukeyTested, significant, partialEta2, data):
                         updatedLme.loc[updatedLme.dependent == dependent, var] = "*"
                 elif row[var] is None:
                     updatedLme.loc[updatedLme.dependent == dependent, var] = None
+
+        '''For dependent variables which had been tested under Tukey's
+        post-hoc but whose independent variables were found to be
+        insignificant, this updates these dependent variables to reflect their
+        insignificance'''
+        significantDependent = set(significant.dependent.tolist())
+        testedDependent = set(tukeyTested.dependent.tolist())
+        insignificantDependent = testedDependent - significantDependent
+        for var in independentVars:
+            updatedLme.loc[updatedLme.dependent.isin(insignificantDependent), var] = None
     elif significant.empty:
         for index, row in tukeyTested.iterrows():
             dependent = row["dependent"]
@@ -474,10 +492,22 @@ compact letter displays
 From the Vmax dataset
 - CBH, Vegetation (missing Tukey's)
 - NAG, Vegetation (missing Tukey's)
+- For these 2 combinations, I did not put them through Tukey's again because
+they previously have undergone Tukey's. Their compact letter displays were
+never created, likely because their time x vegetation was significant in the
+sense that both enzymes consistently show a difference due to vegetation across
+all time points, even with changes between the time points, so creating a
+vegetation compact letter display was perhaps unnecessary
 
 From the FTIR dataset
-- carboEster2, Vegetation, Precipitation, both missing Tukey's
+- carboEster2, Vegetation, Precipitation, both missing Tukey's 
 - glycosidicBond, Vegetation, Precipitation, both missing Tukey's
+- For these 2 dependent variables, I'm assuming that these combinations are
+missing because they both have been previously found to have a veg x precip
+interaction, and that I was more interested in this interaction than the
+independent variables separated. This time, I judge that they're missing the
+precipitation compact letter displays because I was looking at the partial
+eta2 results
 
 Performing Tukey's post-hoc on them and then creating compact letter displays
 for them
@@ -564,3 +594,32 @@ NAG - Vegetation, significant
 Need to update the results for litter chemistry
 """
 litterChemFinal.loc[litterChemFinal.dependent == "glycosidicBond", "Precip"] = None
+# %%
+# Exporting the updated linear mixed effect models + Tukey's post-hoc results
+
+# Creating a ReadMe tab for the final Excel file
+note = ["This file contains linear mixed effect model results, followed by",
+        "Tukey's post-hoc of significant results. For a dependent variable,",
+        "if an independent variable is significant under Tukey's post-hoc",
+        "then Cohen's D is calculated for this combination. If the",
+        "interaction between vegetation and precipitation are significant",
+        "then this interaction is labeled with an asterisk.",
+        "",
+        "This file includes results that were found to be significant under",
+        "Tukey's post-hoc after running linear mixed effect models. It also",
+        "includes results found significant under a previous ANOVA + Tukey's",
+        "analysis."]
+readMe = pd.DataFrame({"Note": note})
+
+# Removing the "parameter" column from the results dataframes
+VmaxFinal = VmaxFinal.drop(columns="parameter")
+litterChemFinal = litterChemFinal.drop(columns="parameter")
+metagenomicFinal = metagenomicFinal.drop(columns="parameter")
+
+resultsPath = statsFolder/"Linear mixed effect models, updated with Tukey.xlsx"
+if os.path.exists(resultsPath) is False:
+    with pd.ExcelWriter(resultsPath) as w:
+        readMe.to_excel(w, "ReadMe", index=False)
+        VmaxFinal.to_excel(w, "Vmax", index=False)
+        litterChemFinal.to_excel(w, "litterChem", index=False)
+        metagenomicFinal.to_excel(w, "CAZynme metagenomic", index=False)
