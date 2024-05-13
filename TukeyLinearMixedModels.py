@@ -622,4 +622,4 @@ if os.path.exists(resultsPath) is False:
         readMe.to_excel(w, "ReadMe", index=False)
         VmaxFinal.to_excel(w, "Vmax", index=False)
         litterChemFinal.to_excel(w, "litterChem", index=False)
-        metagenomicFinal.to_excel(w, "CAZynme metagenomic", index=False)
+        metagenomicFinal.to_excel(w, "CAZyme metagenomic", index=False)
