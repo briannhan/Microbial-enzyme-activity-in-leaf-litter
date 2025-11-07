@@ -17,6 +17,10 @@ per million reads. So an increase in this number could either mean that there
 are an increasing number of unique genes (e.g. an increase of different taxa
 or increasing evolutionary rates) or an increasing abundance of a specific
 taxon.
+
+And now I'm going to do Tukey's on microbial community composition, as well.
+I'm doing Tukey's on fungal:bacterial ratios and on Shannon's taxonomic
+diversity
 """
 import os
 from pathlib import Path
@@ -163,6 +167,11 @@ def Tukey(data, partialEta2, lme):
     FTIR bands in the litter chemistry dataset, etc) if the transformation for
     linear mixed effect models are the same as ANOVA + Tukey's and linear mixed
     effect models found a significant effect where ANOVA + Tukey's did not.
+
+    In order to run Tukey's on dependent variables that have not been subjected
+    to ANOVAs, create a dataframe of fake partial eta-squared results that is
+    essentially empty. Examples can be seen with the CAZyme and the community
+    composition data.
 
     Parameters
     ----------
@@ -553,6 +562,9 @@ def manualTukey(combinations, dataset, cldFolder, finalResults):
             df["data"] = np.log10(df["data"])
         elif transformation == "reciprocal":
             df["data"] = 1/df["data"]
+
+        if independent == "interaction":
+            df["interaction"] = df["Vegetation"] + " x " + df["Precip"]
         tukeyResults = pairwise_tukeyhsd(df.data, df[independent])
         tukeyResults = tukeyResults.summary().data
         tukeyResults = pd.DataFrame(tukeyResults[1:], columns=tukeyResults[0])
@@ -623,3 +635,71 @@ if os.path.exists(resultsPath) is False:
         VmaxFinal.to_excel(w, "Vmax", index=False)
         litterChemFinal.to_excel(w, "litterChem", index=False)
         metagenomicFinal.to_excel(w, "CAZyme metagenomic", index=False)
+# %%
+# Doing Tukey's on community composition. Importing stuff first
+
+"""Importing in the wrangled community composition data and the lme results
+with Cohen's D"""
+compositionLmePath = statsFolder/"Linear mixed models, community composition.xlsx"
+compositionLme = pd.read_excel(compositionLmePath, "Community composition")
+compositionLme["parameter"] = compositionLme.dependent
+compositionLme.loc[compositionLme.transformation.isna(), "transformation"] = None
+compositionCLD = cldFolder/"Community composition"
+compositionDataPath = metagenomicFolder/"Community composition.xlsx"
+composition = (pd.read_excel(compositionDataPath, "Data")
+               .rename(columns={"compositionParameter": "dependent",
+                                "value": "data"})
+               )
+composition["parameter"] = composition.dependent
+
+compositionParameters = compositionLme.parameter.tolist()
+compositionParametersNum = len(compositionParameters)
+# %%
+"""Creating a dataframe of fake partial eta-squared results to run Tukey's
+using the main Tukey's functions.
+"""
+compositionEta2dict = {"dependent": compositionParameters,
+                       "timePoint": compositionParametersNum*[None],
+                       "Vegetation": compositionParametersNum*[None],
+                       "Precip": compositionParametersNum*[None],
+                       "interaction": compositionParametersNum*[None],
+                       "transformation": compositionParametersNum*[None],
+                       "parameter": compositionParameters}
+compositionPartialEta2 = pd.DataFrame(compositionEta2dict)
+# %%
+# Doing Tukey's on community composition
+compositionTukeyTested = Tukey(composition, compositionPartialEta2,
+                               compositionLme)
+compositionSignificant = significantTukey(compositionTukeyTested,
+                                          compositionCLD)
+compositionFinal = updateTestResults(compositionLme, compositionTukeyTested,
+                                     compositionSignificant,
+                                     compositionPartialEta2, composition)
+
+"""I'm going to manually test whether there's an interaction effect on
+abundance and fb ratios as well"""
+compositionMissing = [["bac", "interaction"], ["fun", "interaction"],
+                      ["fb", "interaction"]]
+manualTukey(compositionMissing, composition, compositionCLD, compositionFinal)
+
+"""And the other 3 composition dependent variables are not affected by the
+interaction between vegetation and precipitation."""
+# %%
+# Exporting the post-hoc testing results on microbial community composition
+compositionResultsPath = statsFolder/"Community composition final.xlsx"
+note2 = ["This file contains results from linear mixed effect modeling",
+         "followed by Tukey's post-hoc testing of microbial community",
+         "composition parameters. The dependent variables were 'bac'",
+         "(which refers to bacterial abundance likely measured as reads),",
+         "'fun' (which refers to fungal abundance likely measured as reads),",
+         "'fb' (fungal:bacterial ratios calculated by dividing 'fun' by 'bac'),",
+         "and 'shan' (Shannon's taxonomic diversity). I calculated Cohen's D",
+         "as a measure of effect size for significant main effects following",
+         "Tukey's post-hoc, while significant interactions were labeled with",
+         "an asterisk."]
+readMe2 = pd.DataFrame({"note": note2})
+
+if os.path.exists(compositionResultsPath) is False:
+    with pd.ExcelWriter(compositionResultsPath) as w:
+        readMe2.to_excel(w, "ReadMe", index=False)
+        compositionFinal.to_excel(w, "Results", index=False)

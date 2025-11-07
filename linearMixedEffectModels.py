@@ -671,13 +671,14 @@ def CohenD(series1, series2):
 
 
 dependentVarDict = {"Enzyme": "Vmax", "functionalGroup": "spectralArea",
-                    "substrate": "genesPerMillionReads"}
+                    "substrate": "genesPerMillionReads",
+                    "compositionParameter": "value"}
 
 
 def mainEffectsCohenD(significanceLists, data, dataset):
     """
     Abstracts the calculation of Cohen's D for the main effects of each
-    dataset, so that 
+    dataset, so that
 
     Parameters
     ----------
@@ -1014,3 +1015,104 @@ if os.path.exists(resultsPath) is False:
         enzymeResults.to_excel(w, "Vmax", index=False)
         litterChemResults.to_excel(w, "litterChem", index=False)
         metagenomicResults.to_excel(w, "CAZyme metagenomic", index=False)
+# %%
+"""Analyzing community composition data from Ashish."""
+compositionFilePath = metagenomicFolder/"Community composition.xlsx"
+compositionData = (pd.read_excel(compositionFilePath, "Data")
+                   .merge(timeDF, "inner", "timePoint")
+                   )
+bacterialReads = compositionData.query("compositionParameter == 'bac'")
+fungalReads = compositionData.query("compositionParameter == 'fun'")
+fb = compositionData.query("compositionParameter == 'fb'")
+shannon = compositionData.query("compositionParameter == 'shan'")
+# %%
+bacterialReads1 = mixedLinearModel(bacterialReads, "value")
+# Shapiro-Wilk p = 0.001329
+
+bacterialReads2 = mixedLinearModel(bacterialReads, "value", "log10")
+# Shapiro-Wilk p = 6.4352*10^-5
+
+bacterialReads3 = mixedLinearModel(bacterialReads, "value", "square root")
+# Shapiro-Wilk p = 0.00028986
+
+bacterialReads3 = mixedLinearModel(bacterialReads, "value", "reciprocal")
+# Shapiro-Wilk p = 2.793*10^-6
+
+"""So the untransformed is the most normal. Vegetation is marginally
+significant while precipitation and the interaction aren't."""
+bacterialSignificance = ["bac", "-", None, None, None]
+# %%
+fungalReads1 = mixedLinearModel(fungalReads, "value")
+# Shapiro-Wilk p = 0.001009
+
+fungalReads2 = mixedLinearModel(fungalReads, "value", "log10")
+# Shapiro-Wilk p = 0.3388
+
+fungalReads3 = mixedLinearModel(fungalReads, "value", "square root")
+# Shapiro-Wilk p = 0.2484
+
+fungalReads4 = mixedLinearModel(fungalReads, "value", "reciprocal")
+# Shapiro-Wilk p = 0.00206
+
+"""Let's go with the log-10 transformation. p < 0.05 for vegetation, no
+significance for precipitation and the interaction"""
+fungalSignificance = ["fun", "*", None, None, "log10"]
+# %%
+fb1 = mixedLinearModel(fb, "value")
+# Shapiro-Wilk p = 2.676*10^-6
+
+fb2 = mixedLinearModel(fb, "value", "log10")
+# Shapiro-Wilk p = 0.5429
+
+fb3 = mixedLinearModel(fb, "value", "square root")
+# Shapiro-Wilk p = 0.000719
+
+fb4 = mixedLinearModel(fb, "value", "reciprocal")
+# Shapiro-Wilk p = 0.001969
+
+"""With the log-10 transformation, it's, quite weird that there's no
+p-value estimate for vegetation. No significance for precipitation and the
+interaction. Vegetation is marginally significant under a square root
+transformation and is < 0.001 under a reciprocal transformation. Guess I'll go
+with the reciprocal transformation for now."""
+fbSignificance = ["fb", "***", None, None, "reciprocal"]
+# %%
+shannon1 = mixedLinearModel(shannon, "value")
+# Shapiro-Wilk p = 2.411*10^-6
+
+shannon2 = mixedLinearModel(shannon, "value", "log10")
+# Shapiro-Wilk p = 1.040*10^-6
+
+shannon3 = mixedLinearModel(shannon, "value", "square root")
+# Shapiro-Wilk p = 1.548*10^-6
+
+shannon4 = mixedLinearModel(shannon, "value", "reciprocal")
+# shapiro-Wilk p = 3.2134*10^-7
+
+"""Going with the untransformed data. Vegetation < 0.001, no significance for
+precipitation, p = 0.104 for interaction. I'll do Tukey's on vegetation and
+the interaction."""
+shannonSignificance = ["shan", "***", None, "-", None]
+# %%
+# Calculating Cohen's D for community composition
+compositionSignificance = [bacterialSignificance, fungalSignificance,
+                           fbSignificance, shannonSignificance]
+compositionResults = mainEffectsCohenD(compositionSignificance, compositionData, "compositionParameter")
+# %%
+"""Exporting the community composition linear mixed modeling results and
+Cohen's D"""
+compositionResultsPath = statsFolder/"Linear mixed models, community composition.xlsx"
+note2 = ["This file contains results from mixed effect modeling of 'bac'",
+         "(which I believe refers to bacterial reads), 'fun' (which likely",
+         "refers to fungal reads), 'fb' (fungal:bacterial ratios calculated",
+         "by dividing 'fun' by 'bac'), and 'shan' (Shannon's taxonomic",
+         "diversity). I calculated Cohen's D for significant or marginally",
+         "significant main effects, marginally significant being when p is",
+         "between 0.05 and 0.10 or is just slightly above 0.10. I would have",
+         "used asterisks to describe significant interactions, although there",
+         "weren't any significant interactions"]
+readMe2 = pd.DataFrame({"note": note2})
+if os.path.exists(compositionResultsPath) is False:
+    with pd.ExcelWriter(compositionResultsPath) as w:
+        readMe2.to_excel(w, "ReadMe", index=False)
+        compositionResults.to_excel(w, "Community composition", index=False)
